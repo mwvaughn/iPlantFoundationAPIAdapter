@@ -1,0 +1,6 @@
+Changes
+Makefile.PL
+MANIFEST
+README
+t/iPlant-SuperAuthenticate.t
+lib/iPlant/SuperAuthenticate.pm

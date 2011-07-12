@@ -1,0 +1,6 @@
+Revision history for Perl extension iPlant::SuperAuthenticate.
+
+0.01  Wed Jul  6 08:30:49 2011
+	- original version; created by h2xs 1.23 with options
+		-AXc -n iPlant::SuperAuthenticate
+

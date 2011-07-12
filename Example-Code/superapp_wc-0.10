@@ -1,0 +1,32 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use iPlant::FoundationalAPI;
+use iPlant::SuperAuthenticate;
+
+my $auth_instance = iPlant::SuperAuthenticate->new();
+my $api_instance = iPlant::FoundationalAPI->new();
+
+# Make proxied user request
+my $token = $auth_instance->proxy();
+$api_instance->debug(1);
+
+# Set the application ID so we can implement 'run' command
+$api_instance->application_id('wc-0.10');
+# Configure credentials for api_instance
+$api_instance->set_credentials($auth_instance->delegate_user, $auth_instance->delegate_token, 'proxied');
+# Invoke an instance
+$api_instance->invoke();
+
+=head1 NAME superapp_wc-0.10
+
+Superuser account needs to be configured in /etc/iplant.superauthenticate.json or ./iplant.superauthenticate.json
+
+To invoke this on the condor cluster such that it could interact with the Foundation API
+
+./superapp_wc-0.10 run --proxy_user vaughn --processorCount 1 --requestedTime "00:10:00" --callbackUrl "vaughn@tacc.utexas.edu" --jobName "happyFunToy" --archive --archivePath "/vaughn/analyses/" --query1 "/vaughn/read.1.fq" --printLongestLine
+
+If you need to push in multiple values for a parameter, such as multiple files for --query1, our convention is that they are pushed in as a comma-delimited list --query1 /vaughn/read.1.fq,/vaughn/read.2.fq,/vaughn/read.3.fq
+
+=cut

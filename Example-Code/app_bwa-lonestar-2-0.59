@@ -1,0 +1,13 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use iPlant::FoundationalAPI;
+
+my $api_instance = iPlant::FoundationalAPI->new();
+
+# Set debug to zero
+$api_instance->debug(0);
+# Set the application ID so we can implement 'run' command
+$api_instance->application_id('bwa-lonestar-2-0.59');
+$api_instance->invoke();

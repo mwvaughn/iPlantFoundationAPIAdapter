@@ -1,0 +1,8 @@
+{
+    "user": "api_sample_user",
+    "password": "iplantIPLANT123",
+    "key": "",
+    "processors":1,
+    "run_time":"00:30:00",
+    "debug":0
+}
