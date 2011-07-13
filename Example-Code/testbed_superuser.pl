@@ -16,8 +16,8 @@ $api_instance->debug(0);
 # Configure credentials for api_instance
 $api_instance->set_credentials($auth_instance->delegate_user, $auth_instance->delegate_token, 'proxied');
 
-# Set the APPS application ID so we can implement 'run' command
-$api_instance->application_id('wc-0.10');
+# Hard-set the APPS application ID
+# $api_instance->application_id('wc-0.10');
 $api_instance->invoke();
 
 =head1 NAME testbed_user.pl
@@ -30,9 +30,13 @@ Learn to use the interface
 
 If the module is properly configured and super-credentials are availble, the following will work:
 
-perl testbed_superuser.pl run --proxy_user vaughn --help
+perl testbed_superuser.pl run --proxy_user vaughn --help --appid wc-0.10
 Application_Id: wc-0.10
-wc-0.10 [long options...]
+testbed_superuser.pl [long options...]
+	--appid                 iPlant HPC application ID []
+	                      
+	--proxy_user            iPlant username to proxy [vaughn]
+	                      
 	--processorCount        Processor Count [1]
 	--maxMemory             Maximum memory required
 	--requestedTime         Estimated run time HH::MM::SS [01:00:00]

@@ -195,16 +195,16 @@ sub job_run {
 	
 	my $self = shift;
 
-	my $application_id = $self->application_id;
+# 	my $application_id = $self->application_id;
+# 	
+# 	unless (defined($application_id)) {
+# 		print STDERR "You haven't defined application_id via iPlant::FoundationalAPI->application_id()\n";
+# 		return kExitError;
+# 	}
+# 	
+# 	print STDERR "Application_Id: $application_id", "\n";
 	
-	unless (defined($application_id)) {
-		print STDERR "You haven't defined application_id via iPlant::FoundationalAPI->application_id()\n";
-		return kExitError;
-	}
-	
-	print STDERR "Application_Id: $application_id", "\n";
-	
-	my $result1 = $self->_handle_input_run($application_id);
+	my $result1 = $self->_handle_input_run();
 	# A positive result from _handle_input_run indicates that I have launched a job
 	# Otherwise, I have performed one of the utility tasks associated with 'run'
 	if ($result1 <= 0) {
@@ -230,11 +230,12 @@ sub _handle_input_run {
 	# post $H as a form to job endpoint
 	# return job ID or errorState (negative numbers) 
 	
-	my ($self, $application_id) = @_;
+	my $self = shift;
 	
 	my @opt_parameters;
 	my @opt_flags;
 	my $temp_from_self;
+	my $application_id;
 	
 	# First, define privledged system-level options and flags
 	# Please don't laugh at the need to store original param names in opt_original_names
@@ -242,7 +243,28 @@ sub _handle_input_run {
 	# and the JOB APIs param names are case sensitive
 	
 	my %opt_original_names = ('processorcount'=>'processorCount', 'maxmemory'=>'maxMemory', 'requestedtime'=>'requestedTime', 'callbackurl'=>'callbackUrl', 'jobname'=>'jobName', 'archivepath'=>'archivePath', 'archive'=>'archive', 'user'=>'user', 'password'=>'password', 'token'=>'token');
-	@opt_parameters = ("$application_id %o");
+	
+	@opt_parameters = ("$0 %o");
+	
+	# Allow command-line configuration of application_id
+	unless (defined($self->{'application_id'})) {
+		push(@opt_parameters, ['appid=s', "iPlant HPC application ID []"]);
+		push(@opt_parameters, []);
+		my ($opt2, $usage2) = describe_options(@opt_parameters);
+		if (defined($opt2->appid)) {
+			$application_id = $opt2->appid;
+			$self->{'application_id'} = $application_id;
+		}
+	}
+
+	unless (defined($application_id)) {
+		print STDERR "You haven't specified an iPlant HPC application ID\n";
+		print STDERR "Please either pass the --appid parameter to $0 or add the code\n";
+		print STDERR "iPlant::FoundationalAPI->application_id(<app_id>) to $0\n";
+		return kExitError;
+	}
+	
+	print STDERR "Application_Id: $application_id", "\n";
 	
 	# Auth parameters
 	if ($self->credential_class ne 'proxied') {
@@ -878,6 +900,9 @@ iPlant::FoundationalAPI - Perl extension for interacting with the iPlant Foundat
 
   use iPlant::FoundationalAPI;
   my $api_instance->new();
+  # You can use this in a script to hard-code an application ID
+  # This lets you create local emulator apps that invoke remote HPC jobs
+  # If you omit this, you can pass in the application ID as --appid
   $api_instance->application_id('head-1.0'); # id returned by /apps-v1/apps discovery endpoint
   $api_instance->invoke();
 
@@ -899,7 +924,7 @@ application.pl run|search|list|authenticate --options
 	list --path <iRODS path relative to 
 		$IRODS_HOME> [--authentication]
 
-	run --options [--application-specific options] 
+	run --options --appid <id> [--application-specific options] 
 		[--authentication]
 	
 	authenticate [--authentication]
@@ -936,12 +961,13 @@ Invoking authenticate --user <username> --password <password> with valid iPlant 
 
 =head3 Run
 
-This is the central function of iPlant::FoundationalAPI. When the module is configured with an appropriate $application_id to which the invoking user has access, a program built using the module first accesses the APPS API description for $application_id and uses it to dynamically configure a set of command line options. Command line options from the user are then matched against these options to build a JOBS submission. Assuming all required parameters have been specified, the submission is then POSTed to the JOBS API endpoint. The application then monitors the status of the submitted job via the JOBS API, printing the status of the job to STDERR at periodic intervals. Once the remote job reports either entered the COMPLETE or FAILED status, the application exits with status 0 or 1, respectively. These exit codes allow callers of the iPlant::FoundationalAPI to detect the final dispensation of the 'run' command and its associated job.
+This is the central function of iPlant::FoundationalAPI. When the module is configured with an appropriate iPlant HPC Application ID (to which the invoking user has access), a program built using the module first accesses the APPS API description for $application_id and uses it to dynamically configure a set of command line options. Command line options from the user are then matched against these options to build a JOBS submission. Assuming all required parameters have been specified, the submission is then POSTed to the JOBS API endpoint. The application then monitors the status of the submitted job via the JOBS API, printing the status of the job to STDERR at periodic intervals. Once the remote job reports either entered the COMPLETE or FAILED status, the application exits with status 0 or 1, respectively. These exit codes allow callers of the iPlant::FoundationalAPI to detect the final dispensation of the 'run' command and its associated job.
 
 =head4 System Parameters for Job Submission
 
 =over
 
+=item --appid [String] iPlant HPC Application ID. If not specified here or in calling script, 'run' will fail
 =item --processorCount [Integer] - The number of processors for a parallel job. This can be specified by default in an .iplant.foundationalapi.json file using the token 'processors'
 =item --maxMemory [xGB] - The maximum amount of memory required by your job. Default
 =item --requestedTime [HH::MM:SS] - The estimated time required for the job to run. Default 01:00:00. This can be specified by default in an .iplant.foundationalapi.json file using the token 'run_time'
