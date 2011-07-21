@@ -15,6 +15,7 @@ WriteMakefile(
         'Getopt::Long'              => 0,
         'YAML'                      => 0,
         'MIME::Base64'              => 0,
+        'Net::SSL'                  => 0,
     },
     (   $] >= 5.005
         ? ( ABSTRACT_FROM => 'lib/iPlant/FoundationalAPI.pm',
