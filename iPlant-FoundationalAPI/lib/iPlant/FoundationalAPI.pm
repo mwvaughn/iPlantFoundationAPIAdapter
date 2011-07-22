@@ -1,6 +1,6 @@
 package iPlant::FoundationalAPI;
 
-use 5.010000;
+use 5.008000;
 use strict;
 use warnings;
 use Carp;
@@ -235,7 +235,7 @@ sub _handle_input_run {
 	my @opt_parameters;
 	my @opt_flags;
 	my $temp_from_self;
-	my $application_id;
+	my $application_id = $self->{'application_id'};
 	
 	# First, define privledged system-level options and flags
 	# Please don't laugh at the need to store original param names in opt_original_names
