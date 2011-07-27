@@ -332,7 +332,7 @@ sub _handle_input_run {
 			$id .= $req ."s";
 		} elsif ($_->{'type'} eq 'number') {
 			$id .= $req ."f";
-		} elsif ($_->{'enum'} eq 'enum') {
+		} elsif ($_->{'type'} eq 'enum') {
 			$id .= $req ."s";
 		}
 		my @p = ($id, $_->{'label'} . " [$_->{'defaultValue'}]", { default => $_->{'defaultValue'} });
