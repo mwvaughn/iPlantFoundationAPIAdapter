@@ -37,7 +37,7 @@ my $delegate_token = $auth->delegate_token();
 $api->set_credentials( $delegate_user, $delegate_token, 'proxied' );
 
 # Invoke the service.
-my $api->invoke();
+$api->invoke();
 
 exit;
 __END__
