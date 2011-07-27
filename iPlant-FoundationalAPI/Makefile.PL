@@ -6,6 +6,7 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
     NAME         => 'iPlant::FoundationalAPI',
     VERSION_FROM => 'lib/iPlant/FoundationalAPI.pm',
+    EXE_FILES    => [ 'script/foundational_api_adapter.pl' ],
     PREREQ_PM    => {
         'LWP'                       => 0,
         'HTTP::Request::Common'     => 0,
