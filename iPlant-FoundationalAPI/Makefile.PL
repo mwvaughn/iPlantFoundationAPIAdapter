@@ -6,6 +6,7 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
     NAME         => 'iPlant::FoundationalAPI',
     VERSION_FROM => 'lib/iPlant/FoundationalAPI.pm',
+    EXE_FILES    => [ 'script/foundational_api_adapter.pl' ],
     PREREQ_PM    => {
         'LWP'                       => 0,
         'HTTP::Request::Common'     => 0,
@@ -16,6 +17,7 @@ WriteMakefile(
         'YAML'                      => 0,
         'MIME::Base64'              => 0,
         'Net::SSL'                  => 0,
+        'iPlant::SuperAuthenticate' => 0,
     },
     (   $] >= 5.005
         ? ( ABSTRACT_FROM => 'lib/iPlant/FoundationalAPI.pm',
