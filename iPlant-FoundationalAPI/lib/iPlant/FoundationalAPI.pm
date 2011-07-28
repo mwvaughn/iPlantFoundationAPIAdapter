@@ -18,7 +18,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw( new invoke application_id set_credentials debug );
 
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 use vars qw($VERSION);
     
 use LWP;
@@ -332,7 +332,7 @@ sub _handle_input_run {
 			$id .= $req ."s";
 		} elsif ($_->{'type'} eq 'number') {
 			$id .= $req ."f";
-		} elsif ($_->{'enum'} eq 'enum') {
+		} elsif ($_->{'type'} eq 'enum') {
 			$id .= $req ."s";
 		}
 		my @p = ($id, $_->{'label'} . " [$_->{'defaultValue'}]", { default => $_->{'defaultValue'} });
@@ -380,22 +380,20 @@ sub _handle_input_run {
 	foreach my $k (keys %opt_original_names) {
 		$submitForm{ $opt_original_names{$k} } = $opt->{$k};
 	}
-	
-	# Can print out a form that can be posted using curl
+
+	# Build the request.
+	my $request = POST( "$TRANSPORT://" . $self->hostname . "/$JOB_END", \%submitForm );
+
+	# If we're debugging, print the request content.
 	if ($self->debug) {
-		print STDERR "curl POST form\n";
-		my $form = '';
-		foreach my $m (keys %submitForm) {
-			$form = $form . "$m=" . uri_escape($submitForm{$m}) . "&";
-		}
-		chop($form);
-		print STDERR $form, "\n";
+            print STDERR "curl POST form\n";
+            print STDERR $request->content(), "\n";
 	}
-	
+
 	# Submit form via POST to JOB service
 	my $ua = _setup_user_agent($self);
-	my $job = $ua->post("$TRANSPORT://" . $self->hostname . "/$JOB_END", \%submitForm );
-	
+	my $job = $ua->request($request);
+
 	# Interpret result
 	if ($job->is_success) {
 		my $message = $job->content;
@@ -405,6 +403,7 @@ sub _handle_input_run {
 		return $mref->{'result'}->{'id'};
 	} else {
 		print STDERR $job->status_line, "\n";
+                print STDERR $job->content, "\n";
 		return kExitError;
 	}
 	

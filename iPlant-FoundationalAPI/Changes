@@ -4,3 +4,11 @@ Revision history for Perl extension iPlant::FoundationalAPI.
 	- original version; created by h2xs 1.23 with options
 		-AXc -n iPlant::FoundationalAPI
 
+0.11  Wed Jul 27 15:06:59 2011
+	- added a script for running applications
+	- fixed a typo that was causing a warning message
+	- added code to display the body of the response when the Foundational
+	  API returns an error response
+	- modified the debugging code for the request submission to eliminate
+	  some warnings
+
