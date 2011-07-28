@@ -1,0 +1,194 @@
+__END__
+
+=head1 DESCRIPTION
+
+The iPlant Foundational API Adapter is a set of Perl modules and scripts that
+can be used to submit jobs to high-performance computing resources at the
+Texas Advanced Computing Center.  The primary components of this module are
+the two modules, iPlant::FoundationalAPI and iPlant::SuperAuthenticate.
+iPlant::SuperAuthenticate is used to obtain credentials when jobs are
+submitted to the Foundational API on behalf of a user via a proxy account.
+iPlant::FoundationalAPI is used to submit jobs to the Foundational API and to
+poll for the job status until the job exits.  The script,
+foundational_api_adapter.pl, acts as a generic wrapper script to use when
+submitting jobs to the Foundational API.
+
+=head1 PREREQUISITES
+
+Before attempting to install the iPlant Foundational API Adapter, please
+ensure that the following prerequisites are installed:
+
+=over 2
+
+=item GCC with C++ Support
+
+The GNU Compiler Collection is required to install some of the CPAN modules
+used by the iPlant Foundational API Adapter.  On RedHat and CentOS systems,
+this prerequisite can be installed using this command:
+
+    yum install gcc gcc-c++
+
+=item OpenSSL Development Libraries
+
+The OpenSSL development libraries are required to be able to install HTTPS
+support, which is needed in order to be able to communicate with the
+Foundational API.  On RedHat and CentOS systems, this prerequisite can be
+installed using this command
+
+    yum install openssl-devel
+
+=back
+
+=head1 INSTALLATION
+
+The easiest way to install the iPlant Foundational API Adapter is to use CPAN.
+Both modules are stored in iPlant's CPAN repository, which is hosted at
+http://projects.iplantcollaborative.org/cpan/.  Before attempting to install
+the modules, please determine whether or not this URL is included in the list
+of URLs to search.  This can be done by issuing this command at the CPAN
+prompt:
+
+    o conf urllist
+
+If the URL does not appear in the list, you can add it by issuing this command
+at the CPAN prompt:
+
+    o conf urllist unshift http://projects.iplantcollaborative.org/cpan
+
+If you would like to permanently keep the configuration changes, you can issue
+this command at the CPAN prompt:
+
+    o conf commit
+
+If you have to modify the list of URLs to search, it will be necessary to
+update the module indexes before installing any modules that are in iPlant's
+CPAN repository.  You can reload the indexes by issuing this command at the
+CPAN prompt:
+
+    reload index
+
+To install the adapter in the default locations, you can issue this command
+at the CPAN prompt:
+
+    install iPlant::FoundationalAPI
+
+In most cases, you'll want to install the modules in the default location so
+that Perl can find them, but it is possible to customize the module
+installation directories by adding command-line arguments to the call to
+Makefile.PL.  For more information on how to do this see the documentation for
+ExtUtls::MakeMaker.
+
+The default installation location for the script is wherever the Perl
+executable happens to be installed.  Customizing the installation location for
+this script is fairly common.  To change the script installation directory to
+/usr/local2/bin, for example, instruct CPAN to override the
+C<INSTALLSITESCRIPT> directory first by entering this command at the CPAN
+prompt:
+
+    o conf makepl_arg "INSTALLSITESCRIPT=/usr/local2/bin"
+
+Note: it's important not to commit this configuration change unless you want
+all scripts installed by CPAN to be placed into this directory.
+
+After making this configuration change you can issue the command to install
+the module as described above.
+
+=head1 CONFIGURATION
+
+Both iPlant::FoundationalAPI and iPlant::SuperAuthenticate require some
+configuration before they may be used to submit jobs.  Both configuration
+files are in JSON format and the global configuration files are expected
+to be in /etc.
+
+=head2 iPlant::SuperAuthenticate
+
+The global configuration file for iPlant::SuperAuthenticate is
+/etc/iplant.superauthenticate.json.  Here's an example configuration file:
+
+    {
+        "hostname": "foundation.iplantcollaborative.org",
+        "user":     "ipcservices",
+        "password": "DaPa$$w0rd"
+    }
+
+Other configuration settings may be included in this file, but these are the
+only required settings at this time.
+
+=over 2
+
+=item hostname
+
+The name or IP address of the host where the Foundataional API is deployed.
+The production Foundational API instance is deployed on
+foundation.iplantcollaborative.org.
+
+=item user
+
+The username used to authenticate to the Foundational API.  For Discovery
+Environment deployments, this is the username of a proxy account that is
+used to submit jobs on behalf of Discovery Environment users.
+
+=item password
+
+The password used to authenticate to teh Foundational API.  For Discovery
+Environment deployments, this is the password of a proxy account that is
+used to submit jobs on behalf of Discovery Enviroment users.
+
+=back.
+
+=head2 iPlant::FoundationalAPI
+
+The global configuration file for iPlant::FoundationalAPI is
+/etc/iplant.foundationalapi.json.  Here's an example configuration file:
+
+    {
+        "hostname":   "foundation.iplantcollaborative.org",
+        "user":       "ipcservices",
+        "password":   "DaPa$$w0rd",
+        "processors": 1,
+        "run_time":   "00:30:00",
+        "debug":      0
+    }
+
+Other configuration settings may be included in this file, but these are the
+only required settings at this time.
+
+=over 2
+
+=item hostname
+
+The name or IP address of the host where the Foundational API is deployed.
+The production Foundational API instance is deployed on
+foundation.iplantcollaborative.org.
+
+=item user
+
+The username used to authenticate to the Foundational API.  For Discovery
+Environment deployments, this is the username of a proxy account that is
+used to submit jobs on behalf of Discovery Environment users.
+
+=item password
+
+The password used to authenticate to teh Foundational API.  For Discovery
+Environment deployments, this is the password of a proxy account that is
+used to submit jobs on behalf of Discovery Enviroment users.
+
+=item processors
+
+The default number of processors to request when submitting jobs to the
+Foundataional API.  This setting can be overridden using the --processorCount
+command-line option when calling the wrapper script.
+
+=item run_time
+
+The default maximum run time to request in hours, minutes and seconds.  This
+setting can be overridden using the --requestedTime command-line option when
+calling the wrapper script.
+
+=item debug
+
+The default debugging setting for the foundational API.  Debugging can be
+enabled for individual jobs using the --debug or -d command-line option when
+calling the wrapper script.
+
+=back.
