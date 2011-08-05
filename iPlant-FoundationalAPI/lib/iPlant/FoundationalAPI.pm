@@ -18,7 +18,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw( new invoke application_id set_credentials debug );
 
-our $VERSION = '0.11';
+our $VERSION = '0.12';
 use vars qw($VERSION);
     
 use LWP;
@@ -43,7 +43,8 @@ use MIME::Base64;
 use constant kExitJobError=>1;
 use constant kExitError=>-1;
 use constant kExitOK=>0;
-use constant kMaximumSleepSeconds=>600; # 10 min
+use constant kMaximumSleepSeconds=>1200; # 20 min
+use constant kMaxStatusRetries=>10;
 
 my @config_files = qw(/etc/iplant.foundationalapi.json ~/.iplant.foundationalapi.json ~/Library/Preferences/iplant.foundationalapi.json ./iplant.foundationalapi.json );
 
@@ -437,7 +438,7 @@ sub _poll_job_until_done_or_dead {
 		
 		# Define the statuses that will result in exit from the polling routine
 		# along with their exit codes
-		if ($current_status eq 'FINISHED') {
+		if ($current_status eq 'ARCHIVING_FINISHED') {
 			return kExitOK;
 		} elsif ($current_status eq 'FAILED') {
 			return kExitJobError;
@@ -472,9 +473,9 @@ sub job_get_status {
 	my $mref;
 	my $json = JSON::XS->new->allow_nonref;
 	
-	# Try up to 3 times to reach job status endpoint
+	# Try up to kMaxStatusRetries times to reach job status endpoint
 	my $sleeptime = 30;
-	for (my $x = 0; $x < 3; $x++) {
+	for (my $x = 0; $x < kMaxStatusRetries; $x++) {
 	
 		# Issue the request
 		my $res = $ua->request($req);
