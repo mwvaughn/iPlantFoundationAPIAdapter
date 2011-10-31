@@ -110,7 +110,8 @@ sub auth_post_token_delegate {
 	
 	
 	my $url = "$TRANSPORT://" . $self->hostname . "/$AUTH_END/";
-	my %submitForm = ('username'=>$proxied_user);
+	# lifetime = 172800 = 2 days worth of seconds
+	my %submitForm = ('username'=>$proxied_user, 'lifetime'=>172800);
 	my $res = $ua->post($url, \%submitForm );
 		
 	my $message;

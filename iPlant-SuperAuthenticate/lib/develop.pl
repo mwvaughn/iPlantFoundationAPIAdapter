@@ -3,6 +3,8 @@
 use strict;
 use warnings;
 
+# develop.pl --proxy_user api_sample_user
+
 use iPlant::SuperAuthenticate;
 
 my $auth_instance = iPlant::SuperAuthenticate->new();
