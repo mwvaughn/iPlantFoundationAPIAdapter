@@ -17,7 +17,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw( new proxy debug delegate_user delegate_token);
 
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 use vars qw($VERSION);
 
 use LWP;
