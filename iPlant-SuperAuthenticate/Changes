@@ -4,3 +4,7 @@ Revision history for Perl extension iPlant::SuperAuthenticate.
 	- original version; created by h2xs 1.23 with options
 		-AXc -n iPlant::SuperAuthenticate
 
+0.11  Mon Oct 31 10:16:04 2011
+	- allow proxied users 48 hours to avoid timing out while jobs are being
+          run on a remote resource.
+
