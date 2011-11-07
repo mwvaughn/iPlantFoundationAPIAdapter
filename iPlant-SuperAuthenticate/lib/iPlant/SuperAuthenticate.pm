@@ -17,7 +17,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw( new proxy debug delegate_user delegate_token);
 
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 use vars qw($VERSION);
 
 use LWP;
@@ -44,7 +44,7 @@ use constant kExitOK=>0;
 my @config_files = qw(/etc/iplant.superauthenticate.json  ./iplant.superauthenticate.json );
 
 # Never subject to configuration
-my $AGENT = "iPlantRobot/0.1 ";
+my $AGENT = "iPlantRobot/$VERSION ";
 
 # Define API endpoints
 my $AUTH_ROOT = "auth-v1";
@@ -120,6 +120,7 @@ sub auth_post_token_delegate {
 				
 	if ($res->is_success) {
 		$message = $res->content;
+		print STDOUT $message, "\n";
 		$mref = $json->decode( $message );
 		if (defined($mref->{'result'}->{'token'})) {
 			return $mref->{'result'}->{'token'};
