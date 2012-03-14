@@ -2,3 +2,5 @@ blib/
 Makefile
 pm_to_blib
 *.tar.gz
+.DS_Store
+iplant.superauthenticate.json
