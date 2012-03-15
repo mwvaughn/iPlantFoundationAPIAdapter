@@ -18,7 +18,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw( new invoke application_id set_credentials debug );
 
-our $VERSION = '0.12';
+our $VERSION = '0.20';
 use vars qw($VERSION);
     
 use LWP;
@@ -195,15 +195,6 @@ sub job_run {
 	# Exits with 0 on success, 1 on failure
 	
 	my $self = shift;
-
-# 	my $application_id = $self->application_id;
-# 	
-# 	unless (defined($application_id)) {
-# 		print STDERR "You haven't defined application_id via iPlant::FoundationalAPI->application_id()\n";
-# 		return kExitError;
-# 	}
-# 	
-# 	print STDERR "Application_Id: $application_id", "\n";
 	
 	my $result1 = $self->_handle_input_run();
 	# A positive result from _handle_input_run indicates that I have launched a job
@@ -305,6 +296,7 @@ sub _handle_input_run {
 	# This would fail if I had not already configured the global variables
 	# that hold authentication information
 	my $app_json = apps_fetch_description($self, $application_id);
+	
 	if ($app_json eq kExitError) { return kExitError };
 	
 	# Grab the inputs and parameters arrays from the data structure
@@ -501,7 +493,12 @@ sub job_get_status {
 
 }
 
-sub apps_fetch_description {
+sub __apps_fetch_description {
+	
+	# Note 03/14/12 - This should work, because I expect the API to return a 404 if
+	# user can't retrieve https://foundation.iplantc.org/apps-v1/apps/share/name/<appname>
+	# but instead, it returns the stock 3-stanza message body with an empty message. I have
+	# deprecated the method but kept the code for future referral
 	
 	# input: fully-qualified APPS API name
 	# result: message body from APPS query
@@ -542,7 +539,10 @@ sub apps_fetch_description {
 	
 }
 
-sub _apps_fetch_description {
+sub apps_fetch_description {
+	
+	# Note 03/14/12 - Updated to return more explicit error state via STDERR
+	# and to handle HTTP and ACL errors differently
 	
 	# input: fully-qualified APPS API name
 	# result: message body from APPS query
@@ -550,23 +550,56 @@ sub _apps_fetch_description {
 	my ($self, $app) = @_;
 	
 	my $ua = _setup_user_agent($self);
-	my $req = HTTP::Request->new(GET => "$TRANSPORT://" . $self->hostname . "/$APPS_SHARE_END/" . $self->application_id);	
-	my $res = $ua->request($req);
-
-	my $message;
-	my $mref;
-	my $json = JSON::XS->new->allow_nonref;
+	my ($req, $res, $fail_status);
 	
-	if ($res->is_success) {
-		$message = $res->content;
-		$mref = $json->decode( $message ); 
-		return $mref->{'result'}->[0];
+	# Search order has been reversed to favor private over public apps
+	foreach my $ep ($APPS_SHARE_END, $APPS_END) {
+		
+		# Null hypothesis is that there has been no failure
+		$fail_status = 0;
+		my $url = "$TRANSPORT://" . $self->hostname . "/$ep/" . $self->application_id;	
+		$req = HTTP::Request->new(GET => $url);
+		$res = $ua->request($req);
+	
+		my $message;
+		my $mref;
+		my $json = JSON::XS->new->allow_nonref;
+			
+		if ($res->is_success) {
+			$message = $res->content;
+			$mref = $json->decode( $message );
+			
+			# fail_status is now 1, but this will be ignored if I am
+			# able to successfully return a message body
+			$fail_status = 1;
+			# Return the message body if we can confirm it has a known
+			# slot 'available' in it. 
+			if (defined($mref->{'result'}->[0]->{'available'})) {
+				return $mref->{'result'}->[0];
+			}
+		} else {
+			# fail_status is now 2
+			# This means the HTTP action was not successful at all
+			$fail_status = 2;
+		}
+	
 	}
-	else {
-		print STDERR $res->status_line, "\n";
-		return kExitError;
+	
+	if ($fail_status == 1) {
+		print STDERR "Application ", $self->application_id, " was not found\n";
+		print STDERR "Either an incorrect application key has been provided\n";
+		print STDERR "or the invoking user does not have permission to execute\n";
+		print STDERR "the application.\n";
+	} elsif ($fail_status == 2) {
+		print STDERR "An HTTP error has been returned during application auto-\n";
+		print STDERR "configuration. This may be a temporary issue. Please try\n";
+		print STDERR "the submission again or contact support\@iplantcollaborative.org\n";
 	}
+	
+	# Only return an exit status if no message body could be returned.
+	return kExitError;
 }
+
 
 sub apps_search {
 	print STDERR "apps_search\n";
