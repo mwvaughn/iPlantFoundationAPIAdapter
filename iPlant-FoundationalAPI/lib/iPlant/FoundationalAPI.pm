@@ -59,6 +59,7 @@ my $AUTH_ROOT = "auth-v1";
 my $AUTH_END = $AUTH_ROOT;
 my $APPS_END = "$APPS_ROOT/apps/name";
 my $APPS_SHARE_END = "$APPS_ROOT/apps/share/name";
+my $APPS_SYSTEMS = "$APPS_ROOT/systems/list";
 my $JOB_END = "$APPS_ROOT/job";
 my $JOBS_END = "$APPS_ROOT/jobs";
 my $IO_END = "$IO_ROOT/io/list";
@@ -285,7 +286,8 @@ sub _handle_input_run {
 	# Is this bytes, mb, what...?
 	push(@opt_parameters, ['maxMemory=s','Maximum memory required']);
 	$temp_from_self = $self->run_time;
-	push(@opt_parameters, ['requestedTime=s', "Estimated run time HH::MM::SS [$temp_from_self]", { default => $temp_from_self }]);
+	push(@opt_parameters, ['requestedTime=s', "Estimated run time HH::MM::SS [$temp_from_self]", { default => 
+	}]);
 	push(@opt_parameters, ['callbackUrl=s','Callback URL']);
 	push(@opt_parameters, ['jobName=s','Job name']);
 	push(@opt_parameters, ['archivePath=s','Archive Path']);
@@ -335,7 +337,6 @@ sub _handle_input_run {
 	push(@opt_parameters, []);
 	push(@opt_parameters, ["help|usage", "print usage and exit"]);
 	push(@opt_parameters, ["json", "print $application_id APPS.json and exit"]);
-	push(@opt_parameters, ["tito", "print $application_id Tito.json and exit"]);	
 	
 	# Actually parse options
 	#
@@ -358,12 +359,6 @@ sub _handle_input_run {
 		return kExitOK;
 	}
 	
-	# Exit on --tito
-	if ($opt->tito) {
-		print STDERR "Tito mode is not supported yet\n";
-		return kExitOK;
-	}
-	
 	# Build JOB submit form
 	# For now, just blast entire form set into the POST. Add smarts later if needed
 	my %submitForm;
@@ -373,7 +368,35 @@ sub _handle_input_run {
 	foreach my $k (keys %opt_original_names) {
 		$submitForm{ $opt_original_names{$k} } = $opt->{$k};
 	}
+	
+	# Add in validation and limit on processorCount
+	
+	# If the app is defined as SERIAL hard-code the processorCount to 1
+	if ( $app_json->{'parallelism'} =~ /SERIAL/i ) {
+		$submitForm{'processorCount' } = 1;
+	}
+	
+	# If the app is defined as Parallel, enforce a maximum number of cores to request (currently 1024)
+	if ( $app_json->{'parallelism'} =~ /PARALLEL/i ) { 
+		if ($submitForm{'processorCount' } > 1024) {
+			
+			print STDERR "You have tried to request more than 1024 CPUs, \n";
+			print STDERR "which is the maximum allowed by the API. Throttling\n";
+			print STDERR "to 1024 CPUs and proceeding to run the application.\n";
+			
+			$submitForm{'processorCount' } = 1024
+		}
+	}
 
+	# Check that the executionHost is available before accepting the job request
+	my $hostStatus = get_executionhost_status( $app_json->{'executionHost'} );
+
+	# Report error and fail if host not available
+	unless($hostStatus) {
+		print STDERR $app_json->{'executionHost'}, " currently appears to be unavailable.\nPlease submit this job again later.\n";
+		return kExitError;
+	}
+	
 	# Build the request.
 	my $request = POST( "$TRANSPORT://" . $self->hostname . "/$JOB_END", \%submitForm );
 
@@ -402,6 +425,52 @@ sub _handle_input_run {
 	
 }
 
+sub get_executionhost_status {
+	
+	# Return boolean 1 for up, 0 for down
+	
+	my ($self, $exec_host) = @_;
+	
+	my $ua = _setup_user_agent($self);
+	my $req = HTTP::Request->new(GET => "$TRANSPORT://" . $self->hostname . "/$APPS_SYSTEMS/$exec_host");
+
+	# Parse response
+	my $message;
+	my $mref;
+	my $json = JSON::XS->new->allow_nonref;
+	
+	# Try up to kMaxStatusRetries times to reach systems endpoint
+	my $sleeptime = 5;
+	for (my $x = 0; $x < kMaxStatusRetries; $x++) {
+	
+		# Issue the request
+		my $res = $ua->request($req);
+		
+		if ($res->is_success) {
+			$message = $res->content;
+			$mref = $json->decode( $message );
+			if ($mref->{'result'}->[0]->{'status'} =~ /up/) {
+				return 1
+			} else {
+				return 0
+			}
+		} else {
+		
+			print STDERR "$APPS_SYSTEMS/$exec_host\tERROR\tre-poll: $sleeptime", "s\n";
+			sleep $sleeptime;
+			
+			# Wait longer before checking again. This is a load-smoothing behavior
+			$sleeptime = $sleeptime * 1.5;
+			if ($sleeptime > kMaximumSleepSeconds) { $sleeptime = kMaximumSleepSeconds }
+		}
+	
+	}
+	
+	print STDERR "$APPS_SYSTEMS was never reachable, so we must assume catastrophic failure.\n";
+	return kExitError;
+
+}
+
 sub _poll_job_until_done_or_dead {
 	
 	# input: JOB ID from a submission instance
@@ -411,7 +480,7 @@ sub _poll_job_until_done_or_dead {
 	
 	my $current_status = 'UNDEFINED';
 	my $new_status = 0;
-	my $baseline_sleeptime = 10;
+	my $baseline_sleeptime = 30;
 	my $sleeptime = $baseline_sleeptime;
 	
 	# This Loop only exits on error with ascertaining job status
@@ -492,6 +561,8 @@ sub job_get_status {
 	return kExitError;
 
 }
+
+
 
 sub __apps_fetch_description {
 	
@@ -1030,7 +1101,7 @@ Matthew W. Vaughn, E<lt>vaughn@iplantcollaborative.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2011 by Matthew W. Vaughn
+Copyright (C) 2011-2012 by Matthew Vaughn
 
 See included LICENSE file
 

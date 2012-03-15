@@ -14,12 +14,14 @@ Revision history for Perl extension iPlant::FoundationalAPI.
 
 0.20
 	- updated the application auto-configuration to better detect when failure is due to user not having access to the app under consideration
-	- added code to refresh the token while a job is running rather than relying on 48h tokens
 	- added code to check the status of executeHost before submitting the job and failing with a useful error message. The service is capable of accepting jobs into primary queue while hosts are down, so this is a configurable behavior for the adapter
 	- removed the io and app search codes and moved them to their own modules
-	- increase polling time a bit to lessen load on service
+	- increase default polling time a bit to lessen load on service
 	- enforce processorCount=1 for SERIAL jobs
 	- enforce configurable maximum for number of cores
-	- enforce configurable maximum run time
 	- remove support for --tito method
-	
+
+Revision history for Perl extension iPlant::SuperAuthenticate
+
+0.20
+	- proxied token lifetime is now a configurable preference. defaults to 172800 sec (2 d). maximum lifetime is 14 d.
