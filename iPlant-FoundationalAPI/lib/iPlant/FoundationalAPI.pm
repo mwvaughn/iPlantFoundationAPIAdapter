@@ -224,6 +224,7 @@ sub _handle_input_run {
 	# return job ID or errorState (negative numbers) 
 	
 	my $self = shift;
+	if ($self->debug) { print STDERR "_handle_input_run\n" };
 	
 	my @opt_parameters;
 	my @opt_flags;
@@ -286,7 +287,7 @@ sub _handle_input_run {
 	# Is this bytes, mb, what...?
 	push(@opt_parameters, ['maxMemory=s','Maximum memory required']);
 	$temp_from_self = $self->run_time;
-	push(@opt_parameters, ['requestedTime=s', "Estimated run time HH::MM::SS [$temp_from_self]", { default => 
+	push(@opt_parameters, ['requestedTime=s', "Estimated run time HH::MM::SS [$temp_from_self]", { default => $temp_from_self
 	}]);
 	push(@opt_parameters, ['callbackUrl=s','Callback URL']);
 	push(@opt_parameters, ['jobName=s','Job name']);
@@ -363,15 +364,19 @@ sub _handle_input_run {
 	# For now, just blast entire form set into the POST. Add smarts later if needed
 	my %submitForm;
 	# Manually force appName
+	if ($self->debug) { print STDERR "setting softwareName\n" };
 	$submitForm{'softwareName'}=$application_id;
+	
 	
 	foreach my $k (keys %opt_original_names) {
 		$submitForm{ $opt_original_names{$k} } = $opt->{$k};
+		if ($self->debug) { print STDERR "$opt_original_names{$k} = $opt->{$k}\n" };
 	}
 	
 	# Add in validation and limit on processorCount
 	
 	# If the app is defined as SERIAL hard-code the processorCount to 1
+	if ($self->debug) { print STDERR "processorCount validation\n" };
 	if ( $app_json->{'parallelism'} =~ /SERIAL/i ) {
 		$submitForm{'processorCount' } = 1;
 	}
@@ -389,7 +394,8 @@ sub _handle_input_run {
 	}
 
 	# Check that the executionHost is available before accepting the job request
-	my $hostStatus = get_executionhost_status( $app_json->{'executionHost'} );
+	if ($self->debug) { print STDERR "get_executionhost_status\n" };
+	my $hostStatus = $self->get_executionhost_status( $app_json->{'executionHost'} );
 
 	# Report error and fail if host not available
 	unless($hostStatus) {
@@ -419,7 +425,7 @@ sub _handle_input_run {
 		return $mref->{'result'}->{'id'};
 	} else {
 		print STDERR $job->status_line, "\n";
-                print STDERR $job->content, "\n";
+        print STDERR $job->content, "\n";
 		return kExitError;
 	}
 	
@@ -428,11 +434,12 @@ sub _handle_input_run {
 sub get_executionhost_status {
 	
 	# Return boolean 1 for up, 0 for down
-	
 	my ($self, $exec_host) = @_;
 	
 	my $ua = _setup_user_agent($self);
 	my $req = HTTP::Request->new(GET => "$TRANSPORT://" . $self->hostname . "/$APPS_SYSTEMS/$exec_host");
+
+	print STDERR "Checking that $exec_host is accepting job submissions\n";
 
 	# Parse response
 	my $message;
@@ -480,6 +487,8 @@ sub _poll_job_until_done_or_dead {
 	
 	my $current_status = 'UNDEFINED';
 	my $new_status = 0;
+	my $new_message = "";
+	my $new_status_ref;
 	my $baseline_sleeptime = 30;
 	my $sleeptime = $baseline_sleeptime;
 	
@@ -487,7 +496,10 @@ sub _poll_job_until_done_or_dead {
 	# There's code inside to exit based on the actual job status
 	while ($new_status ne kExitError) {
 	
-		$new_status = $self->job_get_status($job_id);
+		$new_status_ref = $self->job_get_status($job_id);
+		
+		$new_status = $new_status_ref->[0];
+		$new_message = $new_status_ref->[1];
 		
 		# If status changes, reset sleep time
 		if ($new_status ne $current_status) {
@@ -502,8 +514,10 @@ sub _poll_job_until_done_or_dead {
 		if ($current_status eq 'ARCHIVING_FINISHED') {
 			return kExitOK;
 		} elsif ($current_status eq 'FAILED') {
+			print STDERR "\t$new_message", "s\n";
 			return kExitJobError;
 		} elsif ($current_status eq 'KILLED') {
+			print STDERR "\t$new_message", "s\n";
 			return kExitJobError;
 		}
 		
@@ -523,7 +537,7 @@ sub _poll_job_until_done_or_dead {
 
 sub job_get_status {
 	
-	# Return text literal status report for a job
+	# Returns an array - text literal status and message
 	my ($self, $job_id) = @_;
 	
 	my $ua = _setup_user_agent($self);
@@ -543,8 +557,9 @@ sub job_get_status {
 		
 		if ($res->is_success) {
 			$message = $res->content;
-			$mref = $json->decode( $message ); 
-			return $mref->{'result'}->{'status'};
+			$mref = $json->decode( $message );
+			my @payload = ($mref->{'result'}->{'status'}, $mref->{'result'}->{'message'});
+			return \@payload;
 		} else {
 		
 			print STDERR "$JOB_END/$job_id\tERROR\tre-poll: $sleeptime", "s\n";
