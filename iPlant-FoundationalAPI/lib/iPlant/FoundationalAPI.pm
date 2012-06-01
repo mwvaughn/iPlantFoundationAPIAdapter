@@ -281,7 +281,6 @@ sub _handle_input_run {
 	}
 	
 	# System level run parameters
-	# Question: What happens if you pass processorCount to a serial application? Do I need to prevent that?
 	$temp_from_self = $self->processors;
 	push(@opt_parameters, ['processorCount=i',"Processor Count [$temp_from_self]", { default => $temp_from_self }]);
 	# Is this bytes, mb, what...?
@@ -312,7 +311,10 @@ sub _handle_input_run {
 	foreach (@app_inputs) {
 		$opt_original_names{lc($_->{'id'})}=$_->{'id'};
 		my $id = $_->{'id'} . "=s";
-		my @p = ($id, $_->{'label'} . " [$_->{'value'}]", { default => $_->{'value'} });
+		# AgaveV1.x data structure
+		#my @p = ($id, $_->{'label'} . " [$_->{'defaultValue'}]", { default => $_->{'defaultValue'} });
+		# AgaveV2 data structure
+		my @p = ($id, $_->{'label'} . " [$_->{'value'}->{'default'}]", { default => $_->{'value'}->{'default'} });
 		push(@opt_parameters, \@p);
 	}
 	push(@opt_parameters, []);
@@ -331,7 +333,10 @@ sub _handle_input_run {
 		} elsif ($_->{'type'} eq 'enum') {
 			$id .= $req ."s";
 		}
-		my @p = ($id, $_->{'label'} . " [$_->{'defaultValue'}]", { default => $_->{'defaultValue'} });
+		# AgaveV2 structure
+		my @p = ($id, $_->{'label'} . " [$_->{'value'}->{'default'}]", { default => $_->{'value'}->{'default'} });
+		# AgaveV1.x structure		
+		#my @p = ($id, $_->{'label'} . " [$_->{'defaultValue'}]", { default => $_->{'defaultValue'} });
 		push(@opt_parameters, \@p);	
 	}
 	
@@ -372,6 +377,17 @@ sub _handle_input_run {
 		$submitForm{ $opt_original_names{$k} } = $opt->{$k};
 		if ($self->debug) { print STDERR "$opt_original_names{$k} = $opt->{$k}\n" };
 	}
+
+	# This is a temporary fix 05/31/2012
+	# Basically, the iPlant DE mistakenly expects this to be the output directory
+	# /iplant/home/USER/analyses/NAME-DATE.PID-DATE2.PID2 
+	# but sets archivePath to
+	# /iplant/home/USER/analyses/NAME-DATE.PID
+	# I need to over-ride archivePath with the correct incorrect value
+	$submitForm{'archivePath'} = $self->temp_fix_archivepath( $submitForm{'archivePath'} );
+	if ($self->debug) {
+		print STDERR "archivePath: $submitForm{'archivePath'}\n";
+	};
 	
 	# Add in validation and limit on processorCount
 	
@@ -429,6 +445,54 @@ sub _handle_input_run {
 		return kExitError;
 	}
 	
+}
+
+
+sub temp_fix_archivepath {
+	
+	my ($self, $orig_path) = @_;
+		
+	my @z = split("/", $orig_path);
+	my $fname = pop(@z);
+	my $analyses_path = join("/", @z);
+	
+	my $url = "$TRANSPORT://" . $self->hostname . "/" . $IO_END . $analyses_path;
+	
+	print STDERR $url, "\n";
+	
+ 	my $ua = _setup_user_agent($self);
+ 	my $req = HTTP::Request->new(GET => $url);
+ 	my $res = $ua->request($req);
+ 		
+# 	# Parse response
+ 	my $message;
+ 	my $mref;
+ 	my $json = JSON::XS->new->allow_nonref;
+	
+	if ($res->is_success) {
+		$message = $res->content;
+		$mref = $json->decode( $message );
+		# mref in this case is an array reference
+		# Iterate over the filenames, comparing to $fname
+		my $new_path = $orig_path;
+		for my $i (@{ $mref->{'result'} }) {
+		
+			my $n = $i->{'name'};
+			if ($n =~ /^$fname\-/) {
+				$new_path = $analyses_path . "/" . $n;
+				last;
+			}
+		
+		}
+		
+		return $new_path;
+	}
+	else {
+		print STDERR $res->status_line, "\n";
+		return $orig_path;
+	}
+	
+	return $orig_path;
 }
 
 sub get_executionhost_status {
@@ -489,7 +553,7 @@ sub _poll_job_until_done_or_dead {
 	my $new_status = 0;
 	my $new_message = "";
 	my $new_status_ref;
-	my $baseline_sleeptime = 30;
+	my $baseline_sleeptime = 5;
 	my $sleeptime = $baseline_sleeptime;
 	
 	# This Loop only exits on error with ascertaining job status
