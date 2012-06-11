@@ -56,7 +56,10 @@ use constant kMaximumSleepSeconds => 1200;    # 20 min
 use constant kMaxStatusRetries    => 10;
 
 my @config_files
-    = qw(/etc/iplant.foundationalapi.json ~/.iplant.foundationalapi.json ~/Library/Preferences/iplant.foundationalapi.json ./iplant.foundationalapi.json );
+    = qw(/etc/iplant.foundationalapi.json
+         ~/.iplant.foundationalapi.json
+         ~/Library/Preferences/iplant.foundationalapi.json
+         ./iplant.foundationalapi.json );
 
 # Never subject to configuration
 my $ZONE  = 'iPlant Job Service';
