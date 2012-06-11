@@ -127,12 +127,12 @@ sub _auto_config {
 
 sub invoke {
 
-# This routine pops off the first term in the command line and is used to capture
-# the 'verb' being passed to scripts built with FoundationAPI
-#
-# Subsequent terms are then handed down the chain of execution in @ARGV
-#
-# The invoke subroutine then tries to act on the detected verb
+    # This routine pops off the first term in the command line and is used to
+    # capture the 'verb' being passed to scripts built with FoundationAPI
+    #
+    # Subsequent terms are then handed down the chain of execution in @ARGV
+    #
+    # The invoke subroutine then tries to act on the detected verb
 
     my $self   = shift;
     my $status = kExitError;
@@ -221,8 +221,9 @@ sub job_run {
 
     my $result1 = $self->_handle_input_run();
 
-# A positive result from _handle_input_run indicates that I have launched a job
-# Otherwise, I have performed one of the utility tasks associated with 'run'
+    # A positive result from _handle_input_run indicates that I have launched
+    # a job.  Otherwise, I have performed one of the utility tasks associated
+    # with 'run'
     if ( $result1 <= 0 ) {
         return $result1;
     }
@@ -254,10 +255,10 @@ sub _handle_input_run {
     my $temp_from_self;
     my $application_id = $self->{'application_id'};
 
-# First, define privledged system-level options and flags
-# Please don't laugh at the need to store original param names in opt_original_names
-# Getopt::Long::Descriptive strips case out of param names
-# and the JOB APIs param names are case sensitive
+    # First, define privledged system-level options and flags.  Please don't
+    # laugh at the need to store original param names in opt_original_names.
+    # Getopt::Long::Descriptive strips case out of param names and the JOB
+    # APIs param names are case sensitive.
 
     my %opt_original_names = (
         'processorcount' => 'processorCount',
@@ -314,9 +315,10 @@ sub _handle_input_run {
         push( @opt_parameters, [] );
     }
 
-# Intercept the authentication params to allow user to over-ride pre-configured credential info
-# Since I configured Getopt::Long to do pass_through, the other options I define
-# dynamically after this are handled correctly
+    # Intercept the authentication params to allow user to over-ride
+    # pre-configured credential info.  Since I configured Getopt::Long to do
+    # pass_through, the other options I define dynamically after this are
+    # handled correctly.
 
     my ( $opt1, $usage1 ) = describe_options(@opt_parameters);
     if ( $self->credential_class ne 'proxied' ) {
@@ -370,9 +372,14 @@ sub _handle_input_run {
         $opt_original_names{ lc( $_->{'id'} ) } = $_->{'id'};
         my $id = $_->{'id'} . "=s";
 
-# AgaveV1.x data structure
-#my @p = ($id, $_->{'label'} . " [$_->{'defaultValue'}]", { default => $_->{'defaultValue'} });
-# AgaveV2 data structure
+        # AgaveV1.x data structure
+        #my @p = (
+        #   $id,
+        #   $_->{'label'} . " [$_->{'defaultValue'}]",
+        #   { default => $_->{'defaultValue'} }
+        #);
+
+        # AgaveV2 data structure
         my @p = (
             $id,
             $_->{'label'} . " [$_->{'value'}->{'default'}]",
@@ -406,8 +413,12 @@ sub _handle_input_run {
             { default => $_->{'value'}->{'default'} }
         );
 
-# AgaveV1.x structure
-#my @p = ($id, $_->{'label'} . " [$_->{'defaultValue'}]", { default => $_->{'defaultValue'} });
+        # AgaveV1.x structure
+        #my @p = (
+        #   $id,
+        #   $_->{'label'} . " [$_->{'defaultValue'}]",
+        #   { default => $_->{'defaultValue'} }
+        #);
         push( @opt_parameters, \@p );
     }
 
@@ -416,10 +427,10 @@ sub _handle_input_run {
     push( @opt_parameters,
         [ "json", "print $application_id APPS.json and exit" ] );
 
-   # Actually parse options
-   #
-   # Notice that I don't use GetOpt::Long - this is because it doesn't support
-   # dynamically configured option lists (that I can easily discern)
+    # Actually parse options
+    #
+    # Notice that I don't use GetOpt::Long - this is because it doesn't
+    # support dynamically configured option lists (that I can easily discern)
 
     my ( $opt, $usage ) = describe_options(@opt_parameters);
 
@@ -437,8 +448,8 @@ sub _handle_input_run {
         return kExitOK;
     }
 
-# Build JOB submit form
-# For now, just blast entire form set into the POST. Add smarts later if needed
+    # Build JOB submit form For now, just blast entire form set into the
+    # POST. Add smarts later if needed
     my %submitForm;
 
     # Manually force appName
@@ -452,12 +463,11 @@ sub _handle_input_run {
         }
     }
 
- # This is a temporary fix 05/31/2012
- # Basically, the iPlant DE mistakenly expects this to be the output directory
- # /iplant/home/USER/analyses/NAME-DATE.PID-DATE2.PID2
- # but sets archivePath to
- # /iplant/home/USER/analyses/NAME-DATE.PID
- # I need to over-ride archivePath with the correct incorrect value
+    # This is a temporary fix 05/31/2012 Basically, the iPlant DE mistakenly
+    # expects this to be the output directory
+    # /iplant/home/USER/analyses/NAME-DATE.PID-DATE2.PID2 but sets archivePath
+    # to /iplant/home/USER/analyses/NAME-DATE.PID I need to over-ride
+    # archivePath with the correct incorrect value
     $submitForm{'archivePath'}
         = $self->temp_fix_archivepath( $submitForm{'archivePath'} );
     if ( $self->debug ) {
@@ -472,7 +482,8 @@ sub _handle_input_run {
         $submitForm{'processorCount'} = 1;
     }
 
-# If the app is defined as Parallel, enforce a maximum number of cores to request (currently 1024)
+    # If the app is defined as Parallel, enforce a maximum number of cores to
+    # request (currently 1024)
     if ( $app_json->{'parallelism'} =~ /PARALLEL/i ) {
         if ( $submitForm{'processorCount'} > 1024 ) {
 
@@ -486,7 +497,8 @@ sub _handle_input_run {
         }
     }
 
-  # Check that the executionHost is available before accepting the job request
+    # Check that the executionHost is available before accepting the job
+    # request
     if ( $self->debug ) { print STDERR "get_executionhost_status\n" }
     my $hostStatus
         = $self->get_executionhost_status( $app_json->{'executionHost'} );
@@ -545,7 +557,7 @@ sub temp_fix_archivepath {
     my $req = HTTP::Request->new( GET => $url );
     my $res = $ua->request($req);
 
-    # 	# Parse response
+    # Parse response
     my $message;
     my $mref;
     my $json = JSON::XS->new->allow_nonref;
@@ -748,10 +760,12 @@ sub job_get_status {
 
 sub __apps_fetch_description {
 
-# Note 03/14/12 - This should work, because I expect the API to return a 404 if
-# user can't retrieve https://foundation.iplantc.org/apps-v1/apps/share/name/<appname>
-# but instead, it returns the stock 3-stanza message body with an empty message. I have
-# deprecated the method but kept the code for future referral
+    # Note 03/14/12 - This should work, because I expect the API to return a
+    # 404 if user can't retrieve
+    # https://foundation.iplantc.org/apps-v1/apps/share/name/<appname> but
+    # instead, it returns the stock 3-stanza message body with an empty
+    # message. I have deprecated the method but kept the code for future
+    # referral
 
     # input: fully-qualified APPS API name
     # result: message body from APPS query
