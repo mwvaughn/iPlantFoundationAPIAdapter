@@ -433,6 +433,7 @@ sub _handle_input_run {
 
     # Most operations can be performed on both inputs and parameters.
     my @inputs_and_params = ( @app_inputs, @app_params );
+
     # Add the application input and parameter names to the original names hash.
     %opt_original_names = (
         %opt_original_names,
