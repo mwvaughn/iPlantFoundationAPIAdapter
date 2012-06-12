@@ -243,27 +243,63 @@ sub job_run {
 
 }
 
-my %PARAM_FIELD_EXTRACTOR_FOR = {
-    'v1' => sub { ( $_[0]{id}, $_[0]{details}{label}, $_[0]{defaultValue} ) },
-    'v2' =>
-        sub { ( $_[0]{id}, $_[0]{details}{label}, $_[0]{value}{default} ) },
-};
+# Parameter field extraction subroutines for different API versions.
+my %PARAM_FIELD_EXTRACTOR_FOR = (
+    'v1' => sub {
+        my ($param_ref) = @_;
+        my $id          = $param_ref->{id};
+        my $label       = $param_ref->{details}{label};
+        my $default_val = $param_ref->{defaultValue};
+        my $type        = $param_ref->{value}{type};
+        return ( $id, $label, $default_val, $type );
+    },
+    'v2' => sub {
+        my ($param_ref) = @_;
+        my $id          = $param_ref->{id};
+        my $label       = $param_ref->{details}{label};
+        my $default_val = $param_ref->{value}{default};
+        my $type        = $param_ref->{value}{type};
+        return ( $id, $label, $default_val, $type );
+    },
+);
 
-sub _build_arg_description {
+my %TYPE_SPECIFIER_FOR = (
+    'string' => '=s',
+    'number' => '=f',
+    'enum'   => '=s',
+);
+
+sub _build_opt_spec {
     my ( $self, $param_ref, $default_type ) = @_;
 
-    # DEBUG_STUFF
-    use Data::Dumper;
-    warn Dumper $param_ref;
-
     # Extract the fields we need from the parameter definition.
-    my $extractor = $PARAM_FEILD_EXTRACTOR_FOR($API_VERSION);
-    if ( not defined $extractor ) {
+    my $sub_ref = $PARAM_FIELD_EXTRACTOR_FOR{$API_VERSION};
+    if ( not defined $sub_ref ) {
         print {*STDERR} "no field extractor defined for $API_VERSION";
         exit kExitError;
     }
-    my ( $id, $label
-    # 
+    my ( $id, $label, $default_value, $type ) = $sub_ref->($param_ref);
+
+    # Ensure that the label is defined.
+    if ( !defined $label ) {
+        $label = $id;
+    }
+
+    # Use the default type if necessary.
+    if ( !defined $type && defined $default_type ) {
+        $type = $default_type;
+    }
+
+    # Determine the type specifier to pass to the option parser.
+    my $type_specifier = $TYPE_SPECIFIER_FOR{$type} || '';
+
+    # Build the components of the result.
+    my $spec = "$id$type_specifier";
+    my $help = defined $default_value ? "${label} [$default_value]" : $label;
+    my $opts = { default => $default_value };
+
+    return [ $spec, $help, $opts ];
+}
 
 sub _handle_input_run {
 
@@ -395,64 +431,17 @@ sub _handle_input_run {
     my @app_params = @{ $app_json->{'parameters'} };    # array reference
     if ( $self->debug ) { print STDERR Dump @app_params, "\n" }
 
+    # Most operations can be performed on both inputs and parameters.
+    my @inputs_and_params = ( @app_inputs, @app_params );
     # Add the application input and parameter names to the original names hash.
     %opt_original_names = (
         %opt_original_names,
-        ( map { "\L$_->{id}" => $_->{id} } @app_inputs, @app_params ),
+        map { ( "\L$_->{id}" => $_->{id} ) } @inputs_and_params,
     );
 
-    # Start with input paths. These are just a special kind of parameter
-    foreach (@app_inputs) {
-        my $id = $_->{'id'} . "=s";
-
-        # AgaveV1.x data structure
-        my @p = (
-            $id,
-            $_->{'label'} . " [$_->{'defaultValue'}]",
-            { default => $_->{'defaultValue'} }
-        );
-
-        # AgaveV2 data structure
-        # my @p = (
-        #     $id,
-        #     $_->{'label'} . " [$_->{'value'}->{'default'}]",
-        #     { default => $_->{'value'}->{'default'} }
-        # );
-        push( @opt_parameters, \@p );
-    }
-    push( @opt_parameters, [] );
-
-    # Now handle parameters.
-    foreach (@app_params) {
-
-        my $id  = $_->{'id'};
-        my $req = "=";          # optional is default
-
-        if ( $_->{'type'} eq 'string' ) {
-            $id .= $req . "s";
-        }
-        elsif ( $_->{'type'} eq 'number' ) {
-            $id .= $req . "f";
-        }
-        elsif ( $_->{'type'} eq 'enum' ) {
-            $id .= $req . "s";
-        }
-
-        # AgaveV2 structure
-        # my @p = (
-        #     $id,
-        #     $_->{'label'} . " [$_->{'value'}->{'default'}]",
-        #     { default => $_->{'value'}->{'default'} }
-        # );
-
-        # AgaveV1.x structure
-        my @p = (
-            $id,
-            $_->{'label'} . " [$_->{'defaultValue'}]",
-            { default => $_->{'defaultValue'} }
-        );
-        push( @opt_parameters, \@p );
-    }
+    # Add option specifiers for the application itself.
+    push @opt_parameters,
+        map { $self->_build_opt_spec($_) } @inputs_and_params;
 
     push( @opt_parameters, [] );
     push( @opt_parameters, [ "help|usage", "print usage and exit" ] );
@@ -487,11 +476,6 @@ sub _handle_input_run {
     # Manually force appName
     if ( $self->debug ) { print STDERR "setting softwareName\n" }
     $submitForm{'softwareName'} = $application_id;
-
-    # DEBUG_STUFF
-    use Data::Dumper;
-    warn Dumper \%opt_original_names, $opt, \@opt_parameters, \@ARGV,
-        $app_json;
 
     foreach my $k ( keys %opt_original_names ) {
         $submitForm{ $opt_original_names{$k} } = $opt->{$k};
