@@ -65,10 +65,13 @@ my @config_files
 my $ZONE  = 'iPlant Job Service';
 my $AGENT = "iPlantRobot/0.1 ";
 
+# The API version that we're currently using.
+my $API_VERSION = "v1";
+
 # Define API endpoints
-my $APPS_ROOT      = "apps-v1";
-my $IO_ROOT        = "io-v1";
-my $AUTH_ROOT      = "auth-v1";
+my $APPS_ROOT      = "apps-$API_VERSION";
+my $IO_ROOT        = "io-$API_VERSION";
+my $AUTH_ROOT      = "auth-$API_VERSION";
 my $AUTH_END       = $AUTH_ROOT;
 my $APPS_END       = "$APPS_ROOT/apps/name";
 my $APPS_SHARE_END = "$APPS_ROOT/apps/share/name";
@@ -240,6 +243,28 @@ sub job_run {
 
 }
 
+my %PARAM_FIELD_EXTRACTOR_FOR = {
+    'v1' => sub { ( $_[0]{id}, $_[0]{details}{label}, $_[0]{defaultValue} ) },
+    'v2' =>
+        sub { ( $_[0]{id}, $_[0]{details}{label}, $_[0]{value}{default} ) },
+};
+
+sub _build_arg_description {
+    my ( $self, $param_ref, $default_type ) = @_;
+
+    # DEBUG_STUFF
+    use Data::Dumper;
+    warn Dumper $param_ref;
+
+    # Extract the fields we need from the parameter definition.
+    my $extractor = $PARAM_FEILD_EXTRACTOR_FOR($API_VERSION);
+    if ( not defined $extractor ) {
+        print {*STDERR} "no field extractor defined for $API_VERSION";
+        exit kExitError;
+    }
+    my ( $id, $label
+    # 
+
 sub _handle_input_run {
 
     # Nuts and bolts behind job_run
@@ -370,31 +395,35 @@ sub _handle_input_run {
     my @app_params = @{ $app_json->{'parameters'} };    # array reference
     if ( $self->debug ) { print STDERR Dump @app_params, "\n" }
 
+    # Add the application input and parameter names to the original names hash.
+    %opt_original_names = (
+        %opt_original_names,
+        ( map { "\L$_->{id}" => $_->{id} } @app_inputs, @app_params ),
+    );
+
     # Start with input paths. These are just a special kind of parameter
     foreach (@app_inputs) {
-        $opt_original_names{ lc( $_->{'id'} ) } = $_->{'id'};
         my $id = $_->{'id'} . "=s";
 
         # AgaveV1.x data structure
-        #my @p = (
-        #   $id,
-        #   $_->{'label'} . " [$_->{'defaultValue'}]",
-        #   { default => $_->{'defaultValue'} }
-        #);
-
-        # AgaveV2 data structure
         my @p = (
             $id,
-            $_->{'label'} . " [$_->{'value'}->{'default'}]",
-            { default => $_->{'value'}->{'default'} }
+            $_->{'label'} . " [$_->{'defaultValue'}]",
+            { default => $_->{'defaultValue'} }
         );
+
+        # AgaveV2 data structure
+        # my @p = (
+        #     $id,
+        #     $_->{'label'} . " [$_->{'value'}->{'default'}]",
+        #     { default => $_->{'value'}->{'default'} }
+        # );
         push( @opt_parameters, \@p );
     }
     push( @opt_parameters, [] );
 
     # Now handle parameters.
     foreach (@app_params) {
-        $opt_original_names{ lc( $_->{'id'} ) } = $_->{'id'};
 
         my $id  = $_->{'id'};
         my $req = "=";          # optional is default
@@ -410,18 +439,18 @@ sub _handle_input_run {
         }
 
         # AgaveV2 structure
-        my @p = (
-            $id,
-            $_->{'label'} . " [$_->{'value'}->{'default'}]",
-            { default => $_->{'value'}->{'default'} }
-        );
+        # my @p = (
+        #     $id,
+        #     $_->{'label'} . " [$_->{'value'}->{'default'}]",
+        #     { default => $_->{'value'}->{'default'} }
+        # );
 
         # AgaveV1.x structure
-        #my @p = (
-        #   $id,
-        #   $_->{'label'} . " [$_->{'defaultValue'}]",
-        #   { default => $_->{'defaultValue'} }
-        #);
+        my @p = (
+            $id,
+            $_->{'label'} . " [$_->{'defaultValue'}]",
+            { default => $_->{'defaultValue'} }
+        );
         push( @opt_parameters, \@p );
     }
 
@@ -458,6 +487,11 @@ sub _handle_input_run {
     # Manually force appName
     if ( $self->debug ) { print STDERR "setting softwareName\n" }
     $submitForm{'softwareName'} = $application_id;
+
+    # DEBUG_STUFF
+    use Data::Dumper;
+    warn Dumper \%opt_original_names, $opt, \@opt_parameters, \@ARGV,
+        $app_json;
 
     foreach my $k ( keys %opt_original_names ) {
         $submitForm{ $opt_original_names{$k} } = $opt->{$k};
