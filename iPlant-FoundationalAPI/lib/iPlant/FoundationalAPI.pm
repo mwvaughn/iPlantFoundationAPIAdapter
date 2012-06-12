@@ -441,7 +441,7 @@ sub _handle_input_run {
 
     # Add option specifiers for the application itself.
     push @opt_parameters,
-        map { $self->_build_opt_spec($_) } @inputs_and_params;
+        map { $self->_build_opt_spec( $_, 'string' ) } @inputs_and_params;
 
     push( @opt_parameters, [] );
     push( @opt_parameters, [ "help|usage", "print usage and exit" ] );
