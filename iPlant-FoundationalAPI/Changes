@@ -21,7 +21,15 @@ Revision history for Perl extension iPlant::FoundationalAPI.
 	- enforce configurable maximum for number of cores
 	- remove support for --tito method
 
+0.21
+	- fixed a few differences between the actual and expected app
+	  description JSON.
+
 Revision history for Perl extension iPlant::SuperAuthenticate
 
 0.20
 	- proxied token lifetime is now a configurable preference. defaults to 172800 sec (2 d). maximum lifetime is 14 d.
+
+0.21
+	- bumped the version number to make it the same as
+	  iPlant::FoundationalAPI
