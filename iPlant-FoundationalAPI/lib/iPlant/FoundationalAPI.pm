@@ -4,6 +4,8 @@ use 5.008000;
 use strict;
 use warnings;
 use Carp;
+use Mozilla::CA;
+use IO::Socket::SSL;
 
 require Exporter;
 
@@ -22,14 +24,14 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw( new invoke application_id set_credentials debug );
 
-our $VERSION = '0.21';
+our $VERSION = '0.30';
 use vars qw($VERSION);
 
 use LWP;
 
 # Emit verbose HTTP traffic logs to STDERR. Uncomment
 # to see detailed (and I mean detailed) HTTP traffic
-#use LWP::Debug qw/+/;
+use LWP::Debug qw/+/;
 use HTTP::Request::Common qw(POST);
 
 # Needed to emit the curl-compatible form when DEBUG is enabled
@@ -73,8 +75,8 @@ my $APPS_ROOT      = "apps-$API_VERSION";
 my $IO_ROOT        = "io-$API_VERSION";
 my $AUTH_ROOT      = "auth-$API_VERSION";
 my $AUTH_END       = $AUTH_ROOT;
-my $APPS_END       = "$APPS_ROOT/apps/name";
-my $APPS_SHARE_END = "$APPS_ROOT/apps/share/name";
+my $APPS_END       = "$APPS_ROOT/apps";
+#my $APPS_SHARE_END = "$APPS_ROOT/apps/share/name";
 my $APPS_SYSTEMS   = "$APPS_ROOT/systems/list";
 my $JOB_END        = "$APPS_ROOT/job";
 my $JOBS_END       = "$APPS_ROOT/jobs";
@@ -87,7 +89,7 @@ sub new {
     my $class = ref($proto) || $proto;
 
     my $self = {
-        'hostname'         => 'foundation.iplantc.org',
+        'hostname'         => 'foundation.iplantcollaborative.org',
         'iplanthome'       => '/iplant/home/',
         'processors'       => 1,
         'run_time'         => '01:00:00',
@@ -342,7 +344,7 @@ sub _handle_input_run {
     # Allow command-line configuration of application_id
     unless ( defined( $self->{'application_id'} ) ) {
         push( @opt_parameters,
-            [ 'appid=s', "iPlant HPC application ID []" ] );
+            [ 'appid=s', "iPlant Agave application ID []" ] );
         push( @opt_parameters, [] );
         my ( $opt2, $usage2 ) = describe_options(@opt_parameters);
         if ( defined( $opt2->appid ) ) {
@@ -352,7 +354,7 @@ sub _handle_input_run {
     }
 
     unless ( defined($application_id) ) {
-        print STDERR "You haven't specified an iPlant HPC application ID\n";
+        print STDERR "You haven't specified an iPlant Agave application ID\n";
         print STDERR
             "Please either pass the --appid parameter to $0 or add the code\n";
         print STDERR
@@ -511,7 +513,7 @@ sub _handle_input_run {
 
             print STDERR "You have tried to request more than 1024 CPUs, \n";
             print STDERR
-                "which is the maximum allowed by the API. Throttling\n";
+                "which is the maximum currently allowed by our Agave API instance. Throttling\n";
             print STDERR
                 "to 1024 CPUs and proceeding to run the application.\n";
 
@@ -566,8 +568,8 @@ sub temp_fix_archivepath {
 
     my ( $self, $orig_path ) = @_;
 
-    my @z             = split( "/", $orig_path );
-    my $fname         = pop(@z);
+    my @z = split( "/", $orig_path );
+    my $fname = pop(@z);
     my $analyses_path = join( "/", @z );
 
     my $url
@@ -612,6 +614,9 @@ sub temp_fix_archivepath {
 }
 
 sub get_executionhost_status {
+	
+	# This assumes that the status reported by /systems is accurate. Some XSEDE systems
+	# do not report transient outages
 
     # Return boolean 1 for up, 0 for down
     my ( $self, $exec_host ) = @_;
@@ -780,61 +785,13 @@ sub job_get_status {
 
 }
 
-sub __apps_fetch_description {
-
-    # Note 03/14/12 - This should work, because I expect the API to return a
-    # 404 if user can't retrieve
-    # https://foundation.iplantc.org/apps-v1/apps/share/name/<appname> but
-    # instead, it returns the stock 3-stanza message body with an empty
-    # message. I have deprecated the method but kept the code for future
-    # referral
-
-    # input: fully-qualified APPS API name
-    # result: message body from APPS query
-    # error: die
-    my ( $self, $app ) = @_;
-
-    my $ua = _setup_user_agent($self);
-    my ( $req, $res, $wasnt_acl );
-
-    foreach my $ep ( $APPS_END, $APPS_SHARE_END ) {
-
-        $wasnt_acl = 0;
-        my $url
-            = "$TRANSPORT://"
-            . $self->hostname . "/$ep/"
-            . $self->application_id;
-        $req = HTTP::Request->new( GET => $url );
-        $res = $ua->request($req);
-
-        my $message;
-        my $mref;
-        my $json = JSON::XS->new->allow_nonref;
-
-        if ( $res->is_success ) {
-            $message   = $res->content;
-            $mref      = $json->decode($message);
-            $wasnt_acl = 1;
-            if ( defined( $mref->{'result'}->[0] ) ) {
-                return $mref->{'result'}->[0];
-            }
-        }
-
-    }
-
-    print STDERR $res->status_line, "\n";
-    if ($wasnt_acl) {
-        print STDERR $self->application_id, " was not found\n";
-    }
-
-    return kExitError;
-
-}
-
 sub apps_fetch_description {
 
-    # Note 03/14/12 - Updated to return more explicit error state via STDERR
+    # 03/14/12 - Updated to return more explicit error state via STDERR
     # and to handle HTTP and ACL errors differently
+    #
+    # 11/06/12 - Updated to only search the apps endpoint as the /share/name is
+    # deprecated in the recent Agave services update
 
     # input: fully-qualified APPS API name
     # result: message body from APPS query
@@ -845,7 +802,10 @@ sub apps_fetch_description {
     my ( $req, $res, $fail_status );
 
     # Search order has been reversed to favor private over public apps
-    foreach my $ep ( $APPS_SHARE_END, $APPS_END ) {
+    # Use an array to allow searching multiple apps endpoints
+    # As of 0.3.0 we use only one
+    #
+    foreach my $ep ( $APPS_END ) {
 
         # Null hypothesis is that there has been no failure
         $fail_status = 0;
@@ -862,7 +822,14 @@ sub apps_fetch_description {
 
         if ( $res->is_success ) {
             $message = $res->content;
-            $mref    = $json->decode($message);
+            my $fname = "appid_" . $self->application_id . ".$$.json";
+            if ( $self->debug ) {
+            	open(JSON, ">$fname");
+            	print JSON $res->content, "\n";
+            	close JSON;
+            }
+            
+            $mref = $json->decode($message);
 
             # fail_status is now 1, but this will be ignored if I am
             # able to successfully return a message body
@@ -870,9 +837,15 @@ sub apps_fetch_description {
 
             # Return the message body if we can confirm it has a known
             # slot 'available' in it.
-            if ( defined( $mref->{'result'}->[0]->{'available'} ) ) {
-                return $mref->{'result'}->[0];
+            #if ( defined( $mref->{'result'}->[0]->{'available'} ) ) {
+            #    return $mref->{'result'}->[0];
+            #}
+        	# Return the message body if we can confirm it has a known
+            # slot 'available' in it.
+            if ( defined( $mref->{'result'}->{'available'} ) ) {
+                return $mref->{'result'};
             }
+            
         }
         else {
 
@@ -1081,7 +1054,7 @@ sub io_list {
     # Check for --path
     unless ( defined( $opt->path ) ) {
         print STDERR
-            "Please specify iPlant Storage Architecture path using --path\n";
+            "Please specify iPlant Data Store path using --path\n";
         return kExitError;
     }
 
@@ -1163,29 +1136,6 @@ sub _human_readable_bytes {
             $i_converted++;
         }
     }
-
-    if ($i_converted) {
-        $bytes = sprintf( "%0.0f", $bytes );
-    }
-
-    return $bytes . $suffix;
-}
-
-sub __human_readable_bytes {
-
-    # Convert bytes to human-readable values
-    my $bytes       = shift;
-    my $suffix      = '';
-    my @suffixes    = qw(b K M G T P E);
-    my $i_converted = 1;
-
-    my $x = 0;
-    if ( $bytes > 0 ) {
-        $x = int( log($bytes) / log(1024) );
-    }
-
-    $bytes = $bytes / ( 1024**$x );
-    $suffix = $suffixes[$x];
 
     if ($i_converted) {
         $bytes = sprintf( "%0.0f", $bytes );
@@ -1368,7 +1318,7 @@ plaintext password.
 =head3 Run
 
 This is the central function of iPlant::FoundationalAPI. When the module is
-configured with an appropriate iPlant HPC Application ID (to which the
+configured with an appropriate iPlant Agave application ID (to which the
 invoking user has access), a program built using the module first accesses the
 APPS API description for $application_id and uses it to dynamically configure
 a set of command line options. Command line options from the user are then
@@ -1387,7 +1337,7 @@ dispensation of the 'run' command and its associated job.
 
 =item --appid [String]
 
-iPlant HPC Application ID. If not specified here or in calling script, 'run'
+iPlant Agave application ID. If not specified here or in calling script, 'run'
 will fail
 
 =item --processorCount [Integer]

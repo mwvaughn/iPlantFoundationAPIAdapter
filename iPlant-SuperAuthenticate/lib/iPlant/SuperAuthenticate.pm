@@ -4,6 +4,8 @@ use 5.008000;
 use strict;
 use warnings;
 use Carp;
+use Mozilla::CA;
+use IO::Socket::SSL
 
 require Exporter;
 
@@ -17,13 +19,13 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw( new proxy debug delegate_user delegate_token);
 
-our $VERSION = '0.21';
+our $VERSION = '0.30';
 use vars qw($VERSION);
 
 use LWP;
 # Emit verbose HTTP traffic logs to STDERR. Uncomment
 # to see detailed (and I mean detailed) HTTP traffic
-#use LWP::Debug qw/+/;
+use LWP::Debug qw/+/;
 use HTTP::Request::Common qw(POST);
 # For handling the JSON that comes back from iPlant services
 use JSON::XS;
@@ -58,7 +60,7 @@ sub new {
 	my $proto = shift;
 	my $class = ref($proto) || $proto;
 	
-	my $self  = {	'hostname' => 'foundation.iplantc.org',
+	my $self  = {	'hostname' => 'foundation.iplantcollaborative.org',
 					'user' => '',
 					'password' => '',
 					'token' => ''
@@ -259,7 +261,7 @@ Matt Vaughn, E<lt>mwvaughn@apple.comE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2011 by Matt Vaughn
+Copyright (C) 2011-2012 by Matt Vaughn
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.10.0 or,
