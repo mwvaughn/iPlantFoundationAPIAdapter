@@ -78,7 +78,7 @@ my $AUTH_END		= "$API_ROOT/auth";
 my $APPS_END		= "$API_ROOT/apps";
 my $SYSTEMS_END		=  "$API_ROOT/systems";
 my $JOBS_END		= "$API_ROOT/jobs";
-my $IO_END			= "$API/files/listings/system/$STORAGE_SYSTEM";
+my $IO_END			= "$API_ROOT/files/listings/system/$STORAGE_SYSTEM";
 
 sub new {
 
