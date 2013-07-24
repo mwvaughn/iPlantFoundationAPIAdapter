@@ -736,7 +736,7 @@ sub _poll_job_until_done_or_dead {
 
        # Define the statuses that will result in exit from the polling routine
        # along with their exit codes
-        if ( $current_status eq 'ARCHIVING_FINISHED' ) {
+        if ( $current_status eq 'FINISHED' ) {
             return kExitOK;
         }
         elsif ( $current_status eq 'FAILED' ) {
@@ -925,10 +925,7 @@ sub _setup_user_agent {
 
     $ua->agent($AGENT);
     if ( ( $self->user ne '' ) and ( $self->token ne '' ) ) {
-        if ( $self->debug ) {
-            print STDERR ( caller(0) )[3],
-                ": Username/token authentication selected\n";
-        }
+
         $ua->default_header( Authorization => 'Basic '
                 . _encode_credentials( $self->user, $self->token ) );
     }
@@ -965,11 +962,6 @@ sub _configure_auth_from_opt {
 
     if ( $opt1->user and $opt1->password and not $opt1->token ) {
 
-        if ( $self->debug ) {
-            print STDERR ( caller(0) )[3],
-                ": Username/password authentication selected\n";
-        }
-
         # set global.user global.password
         $self->user( $opt1->{'user'} );
         $self->password( $opt1->{'password'} );
@@ -985,11 +977,6 @@ sub _configure_auth_from_opt {
 
     }
     elsif ( $opt1->user and $opt1->token and not $opt1->password ) {
-
-        if ( $self->debug ) {
-            print STDERR ( caller(0) )[3],
-                ": Secure token authentication selected\n";
-        }
 
         $self->user( $opt1->user );
         $self->token( $opt1->token );
