@@ -19,7 +19,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw( new proxy debug delegate_user delegate_token);
 
-our $VERSION = '0.30';
+our $VERSION = '2.00';
 use vars qw($VERSION);
 
 use LWP;
@@ -49,7 +49,7 @@ my @config_files = qw(/etc/iplant.superauthenticate.json  ./iplant.superauthenti
 my $AGENT = "iPlantRobot/$VERSION ";
 
 # Define API endpoints
-my $AUTH_ROOT = "auth-v1";
+my $AUTH_ROOT = "v2/auth";
 my $AUTH_END = $AUTH_ROOT;
 my $TRANSPORT = 'https';
 
@@ -60,7 +60,7 @@ sub new {
 	my $proto = shift;
 	my $class = ref($proto) || $proto;
 	
-	my $self  = {	'hostname' => 'foundation.iplantcollaborative.org',
+	my $self  = {	'hostname' => 'iplant-dev.tacc.utexas.edu',
 					'user' => '',
 					'password' => '',
 					'token' => ''
@@ -112,8 +112,8 @@ sub auth_post_token_delegate {
 	
 	
 	my $url = "$TRANSPORT://" . $self->hostname . "/$AUTH_END/";
-	# lifetime = 172800 = 2 days worth of seconds
-	my %submitForm = ('username'=>$proxied_user, 'lifetime'=>172800);
+	# lifetime = 604800 -> 7 days worth of seconds
+	my %submitForm = ('username'=>$proxied_user, 'lifetime'=>604800);
 	my $res = $ua->post($url, \%submitForm );
 		
 	my $message;
@@ -219,49 +219,36 @@ sub debug {
 
 1;
 __END__
-# Below is stub documentation for your module. You'd better edit it!
 
 =head1 NAME
 
-iPlant::SuperAuthenticate - Perl extension for blah blah blah
+iPlant::SuperAuthenticate - Perl extension to authenticate on behalf of users using iPlant Foundation API
 
 =head1 SYNOPSIS
 
   use iPlant::SuperAuthenticate;
-  blah blah blah
 
 =head1 DESCRIPTION
 
-Stub documentation for iPlant::SuperAuthenticate, created by h2xs. It looks like the
-author of the extension was negligent enough to leave the stub
-unedited.
-
-Blah blah blah.
+This is a module that handles delegated authentication for the iPlant API. 
 
 =head2 EXPORT
 
-None by default.
-
-
+proxy(userNameToProxyAuthenticate)
+delegate_user()
+delegate_token()
 
 =head1 SEE ALSO
 
-Mention other useful documentation such as the documentation of
-related modules or operating system documentation (such as man pages
-in UNIX), or any relevant external documentation such as RFCs or
-standards.
-
-If you have a mailing list set up for your module, mention it here.
-
-If you have a web site set up for your module, mention it here.
+None
 
 =head1 AUTHOR
 
-Matt Vaughn, E<lt>mwvaughn@apple.comE<gt>
+Matt Vaughn, E<lt>vaughn@iplantcollaborative.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2011-2012 by Matt Vaughn
+Copyright (C) 2011-2013 by Matt Vaughn
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.10.0 or,
