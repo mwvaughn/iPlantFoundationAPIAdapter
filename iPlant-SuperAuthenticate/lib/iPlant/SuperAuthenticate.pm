@@ -43,7 +43,7 @@ use constant kExitJobError=>1;
 use constant kExitError=>-1;
 use constant kExitOK=>0;
 
-my @config_files = qw(/etc/iplant.superauthenticate.json  ./iplant.superauthenticate.json );
+my @config_files = qw(/etc/iplant.superauth-v2.json  ./iplant.superauth-v2.json );
 
 # Never subject to configuration
 my $AGENT = "iPlantRobot/$VERSION ";

@@ -11,7 +11,7 @@ require Exporter;
 
 our @ISA = qw(Exporter);
 
-# This allows declaration use iPlant::FoundationalAPI ':all';
+# This allows declaration use iPlant::foundation-v2 ':all';
 our %EXPORT_TAGS = (
     'all' => [
         qw(
@@ -58,10 +58,10 @@ use constant kMaximumSleepSeconds => 3600;    # 20 min
 use constant kMaxStatusRetries    => 12;
 
 my @config_files
-    = qw(/etc/iplant.foundationalapi.json
-         ~/.iplant.foundationalapi.json
-         ~/Library/Preferences/iplant.foundationalapi.json
-         ./iplant.foundationalapi.json );
+    = qw(/etc/iplant.foundation-v2.json
+         ~/.iplant.foundation-v2.json
+         ~/Library/Preferences/iplant.foundation-v2.json
+         ./iplant.foundation-v2.json );
 
 # Never subject to configuration
 my $ZONE  = 'iPlant Job Service';
@@ -355,7 +355,7 @@ sub _handle_input_run {
         print STDERR
             "Please either pass the --appid parameter to $0 or add the code\n";
         print STDERR
-            "iPlant::FoundationalAPI->application_id(<app_id>) to $0\n";
+            "iPlant::foundation-v2->application_id(<app_id>) to $0\n";
         return kExitError;
     }
 
@@ -522,21 +522,35 @@ sub _handle_input_run {
         }
     }
 
-    # Check that the executionHost is available before accepting the job
-    # request
-    if ( $self->debug ) { print STDERR "get_executionhost_status\n" }
-    my $hostStatus
-        = $self->get_executionhost_status( $app_json->{'executionHost'} );
+    # Check that the executionSystem is available before 
+    # accepting the job request. Note that we use executionSystem now 
+    # instead of executionHost
+    if ( $self->debug ) { print STDERR "get_system_status: executionSystem\n" }
+    # executionSystem
+    my $executionStatus
+        = $self->get_system_status( $app_json->{'executionSystem'} );
 
     # Report error and fail if host not available
-    unless ($hostStatus) {
-        print STDERR $app_json->{'executionHost'},
+    unless ($executionStatus) {
+        print STDERR $app_json->{'executionSystem'},
+            " currently appears to be unavailable.\nPlease submit this job again later.\n";
+        return kExitError;
+    }
+    
+	# deploymentSystem
+    if ( $self->debug ) { print STDERR "get_system_status: deploymentSystem\n" }
+    my $storageStatus
+        = $self->get_system_status( $app_json->{'deploymentSystem'} );
+
+    # Report error and fail if host not available
+    unless ($storageStatus) {
+        print STDERR $app_json->{'deploymentSystem'},
             " currently appears to be unavailable.\nPlease submit this job again later.\n";
         return kExitError;
     }
 
     # Build the request.
-    my $request = POST( "$TRANSPORT://" . $self->hostname . "/$JOBS_END",
+    my $request = POST( "$TRANSPORT://" . $self->hostname . "/$JOBS_END/",
         \%submitForm );
 
     # If we're debugging, print the request content.
@@ -614,7 +628,7 @@ sub temp_fix_archivepath {
     return $orig_path;
 }
 
-sub get_executionhost_status {
+sub get_system_status {
 	
 	# This assumes that the status reported by /systems is accurate. Some XSEDE systems
 	# do not report transient outages
@@ -646,9 +660,9 @@ sub get_executionhost_status {
             
             $message = $res->content;
             $mref    = $json->decode($message);
-			print STDERR $mref->{'result'}->[0]->{'name'}, " status was ", $mref->{'result'}->[0]->{'status'}, "\n";
+			print STDERR $mref->{'result'}->{'name'}, " status was ", $mref->{'result'}->{'status'}, "\n";
 			
-            if ( $mref->{'result'}->[0]->{'status'} =~ /UP/i ) {
+            if ( $mref->{'result'}->{'status'} =~ /UP/i ) {
                 return 1;
             }
             else {
@@ -744,6 +758,10 @@ sub job_get_status {
     my ( $self, $job_id ) = @_;
 
     my $ua  = _setup_user_agent($self);
+    
+    #print STDERR "$TRANSPORT://" . $self->hostname . "/$JOBS_END/$job_id", "\n";
+    #exit 1;
+    
     my $req = HTTP::Request->new(
         GET => "$TRANSPORT://" . $self->hostname . "/$JOBS_END/$job_id" );
 
@@ -1218,11 +1236,11 @@ __END__
 
 =head1 NAME
 
-iPlant::FoundationalAPI - Perl extension for interacting with the iPlant Foundational API.
+iPlant::foundation-v2 - Perl extension for interacting with the iPlant Foundational API.
 
 =head1 SYNOPSIS
 
-  use iPlant::FoundationalAPI;
+  use iPlant::foundation-v2;
   my $api_instance->new();
   # You can use this in a script to hard-code an application ID
   # This lets you create local emulator apps that invoke remote HPC jobs
@@ -1268,14 +1286,14 @@ iPlant secure authentication token (--token). We recommend the latter. If you
 supply both sets of credentials, the secure token method takes precedence.
 
 In addition, to faciliate scripting access (or for simple convenience), you
-may store your credentials in an .iplant.foundationalapi.json file. This will
-be read at run-time from (in order): /etc/iplant.foundationalapi.json
-~/.iplant.foundationalapi.json
-~/Library/Preferences/iplant.foundationalapi.json
-./iplant.foundationalapi.json. If the same value is specified twice, the most
+may store your credentials in an .iplant.foundation-v2.json file. This will
+be read at run-time from (in order): /etc/iplant.foundation-v2.json
+~/.iplant.foundation-v2.json
+~/Library/Preferences/iplant.foundation-v2.json
+./iplant.foundation-v2.json. If the same value is specified twice, the most
 recently read one takes precedence. In addition, command-line parameters (see
 above) take precedence over file-configured options. An example configuration
-file (sample.iplant.foundationalapi.json can be found associated with this
+file (sample.iplant.foundation-v2.json can be found associated with this
 module.
 
 =head2 Commands
@@ -1300,7 +1318,7 @@ The search command allows users to query the public and user-specific lists of
 deployed JOBS API applications by name. The result is a list of application
 names, short descriptions, and (most importantly) the unique token identifying
 that application so that it can be set via the
-iPlant::FoundationalAPI->application_id() method allowing execution of
+iPlant::foundation-v2->application_id() method allowing execution of
 instances of that application on remote resources.
 
 Search first accesses the public APPS directory, and if nothing matching the
@@ -1321,7 +1339,7 @@ plaintext password.
 
 =head3 Run
 
-This is the central function of iPlant::FoundationalAPI. When the module is
+This is the central function of iPlant::foundation-v2. When the module is
 configured with an appropriate iPlant Agave application ID (to which the
 invoking user has access), a program built using the module first accesses the
 APPS API description for $application_id and uses it to dynamically configure
@@ -1332,7 +1350,7 @@ JOBS API endpoint. The application then monitors the status of the submitted
 job via the JOBS API, printing the status of the job to STDERR at periodic
 intervals. Once the remote job reports either entered the COMPLETE or FAILED
 status, the application exits with status 0 or 1, respectively. These exit
-codes allow callers of the iPlant::FoundationalAPI to detect the final
+codes allow callers of the iPlant::foundation-v2 to detect the final
 dispensation of the 'run' command and its associated job.
 
 =head4 System Parameters for Job Submission
@@ -1347,7 +1365,7 @@ will fail
 =item --processorCount [Integer]
 
 The number of processors for a parallel job. This can be specified by default
-in an .iplant.foundationalapi.json file using the token 'processors'
+in an .iplant.foundation-v2.json file using the token 'processors'
 
 =item --maxMemory [xGB]
 
@@ -1356,7 +1374,7 @@ The maximum amount of memory required by your job. Default
 =item --requestedTime [HH::MM:SS]
 
 The estimated time required for the job to run. Default 01:00:00. This can be
-specified by default in an .iplant.foundationalapi.json file using the token
+specified by default in an .iplant.foundation-v2.json file using the token
 'run_time'
 
 =item --callbackUrl []
