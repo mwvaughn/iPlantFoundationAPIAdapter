@@ -482,9 +482,11 @@ sub _handle_input_run {
 	#    (This may not be necessary under v2 but was under v1)
 	# 2) Populate the submitForm hash with key-value pairs (still necessary!)
     foreach my $k ( keys %opt_original_names ) {
-        $submitForm{ $opt_original_names{$k} } = $opt->{$k};
-        if ( $self->debug ) {
-            print STDERR "$opt_original_names{$k} = $opt->{$k}\n";
+    	if (defined($opt->{$k})) {
+			$submitForm{ $opt_original_names{$k} } = $opt->{$k};
+			if ( $self->debug ) {
+				print STDERR "$opt_original_names{$k} = $opt->{$k}\n";
+			}
         }
     }
 
@@ -493,12 +495,14 @@ sub _handle_input_run {
     # /iplant/home/USER/analyses/NAME-DATE.PID-DATE2.PID2 but sets archivePath
     # to /iplant/home/USER/analyses/NAME-DATE.PID I need to over-ride
     # archivePath with the correct incorrect value
-    $submitForm{'archivePath'}
-        = $self->temp_fix_archivepath( $submitForm{'archivePath'} );
-    if ( $self->debug ) {
-        print STDERR "archivePath: $submitForm{'archivePath'}\n";
-    }
-
+    if (defined($submitForm{'archivePath'})) {
+		$submitForm{'archivePath'}
+			= $self->temp_fix_archivepath( $submitForm{'archivePath'} );
+		if ( $self->debug ) {
+			print STDERR "archivePath: $submitForm{'archivePath'}\n";
+		}
+	}
+	
     # Add in validation and limit on processorCount
 
     # If the app is defined as SERIAL hard-code the processorCount to 1
@@ -558,7 +562,10 @@ sub _handle_input_run {
         print STDERR "curl POST form\n";
         print STDERR $request->content(), "\n";
     }
-
+	
+	# This exit will stop the application right before a job is posted to the service
+	#exit 1;
+	
     # Submit form via POST to JOB service
     my $ua  = _setup_user_agent($self);
     my $job = $ua->request($request);
@@ -582,49 +589,54 @@ sub _handle_input_run {
 sub temp_fix_archivepath {
 
     my ( $self, $orig_path ) = @_;
-
+	
+	if (defined($orig_path)) {
+	
     my @z = split( "/", $orig_path );
     my $fname = pop(@z);
-    my $analyses_path = join( "/", @z );
+        
+		my $analyses_path = join( "/", @z );
 
-    my $url
-        = "$TRANSPORT://" . $self->hostname . "/" . $IO_END . $analyses_path;
+		my $url
+			= "$TRANSPORT://" . $self->hostname . "/" . $IO_END . $analyses_path;
 
-    print STDERR $url, "\n";
+		print STDERR $url, "\n";
 
-    my $ua  = _setup_user_agent($self);
-    my $req = HTTP::Request->new( GET => $url );
-    my $res = $ua->request($req);
+		my $ua  = _setup_user_agent($self);
+		my $req = HTTP::Request->new( GET => $url );
+		my $res = $ua->request($req);
 
-    # Parse response
-    my $message;
-    my $mref;
-    my $json = JSON::XS->new->allow_nonref;
+		# Parse response
+		my $message;
+		my $mref;
+		my $json = JSON::XS->new->allow_nonref;
 
-    if ( $res->is_success ) {
-        $message = $res->content;
-        $mref    = $json->decode($message);
+		if ( $res->is_success ) {
+			$message = $res->content;
+			$mref    = $json->decode($message);
 
-        # mref in this case is an array reference
-        # Iterate over the filenames, comparing to $fname
-        my $new_path = $orig_path;
-        for my $i ( @{ $mref->{'result'} } ) {
+			# mref in this case is an array reference
+			# Iterate over the filenames, comparing to $fname
+			my $new_path = $orig_path;
+			for my $i ( @{ $mref->{'result'} } ) {
 
-            my $n = $i->{'name'};
-            if ( $n =~ /^$fname\-/ ) {
-                $new_path = $analyses_path . "/" . $n;
-                last;
-            }
+				my $n = $i->{'name'};
+				if ( $n =~ /^$fname\-/ ) {
+					$new_path = $analyses_path . "/" . $n;
+					last;
+				}
 
-        }
+			}
 
-        return $new_path;
-    }
-    else {
-        print STDERR $res->status_line, "\n";
-        return $orig_path;
-    }
-
+			return $new_path;
+		}
+		else {
+			print STDERR $res->status_line, "\n";
+			return $orig_path;
+		}
+	
+	}
+	
     return $orig_path;
 }
 
