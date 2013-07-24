@@ -24,7 +24,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw( new invoke application_id set_credentials debug );
 
-our $VERSION = '0.30';
+our $VERSION = '2.00';
 use vars qw($VERSION);
 
 use LWP;
@@ -54,8 +54,8 @@ use MIME::Base64;
 use constant kExitJobError        => 1;
 use constant kExitError           => -1;
 use constant kExitOK              => 0;
-use constant kMaximumSleepSeconds => 1200;    # 20 min
-use constant kMaxStatusRetries    => 10;
+use constant kMaximumSleepSeconds => 3600;    # 20 min
+use constant kMaxStatusRetries    => 12;
 
 my @config_files
     = qw(/etc/iplant.foundationalapi.json
@@ -65,23 +65,20 @@ my @config_files
 
 # Never subject to configuration
 my $ZONE  = 'iPlant Job Service';
-my $AGENT = "iPlantRobot/0.1 ";
+my $AGENT = "iPlantRobot/$VERSION ";
+my $TRANSPORT      = 'https';
 
 # The API version that we're currently using.
-my $API_VERSION = "v1";
+my $API_VERSION = "v2";
 
 # Define API endpoints
-my $APPS_ROOT      = "apps-$API_VERSION";
-my $IO_ROOT        = "io-$API_VERSION";
-my $AUTH_ROOT      = "auth-$API_VERSION";
-my $AUTH_END       = $AUTH_ROOT;
-my $APPS_END       = "$APPS_ROOT/apps";
-#my $APPS_SHARE_END = "$APPS_ROOT/apps/share/name";
-my $APPS_SYSTEMS   = "$APPS_ROOT/systems/list";
-my $JOB_END        = "$APPS_ROOT/job";
-my $JOBS_END       = "$APPS_ROOT/jobs";
-my $IO_END         = "$IO_ROOT/io/list";
-my $TRANSPORT      = 'https';
+my $STORAGE_SYSTEM 	= "data.iplantcollaborative.org";
+my $API_ROOT		= $API_VERSION;
+my $AUTH_END		= "$API_ROOT/auth";
+my $APPS_END		= "$API_ROOT/apps";
+my $SYSTEMS_END		=  "$API_ROOT/systems";
+my $JOBS_END		= "$API_ROOT/jobs";
+my $IO_END			= "$API/files/listings/system/$STORAGE_SYSTEM";
 
 sub new {
 
@@ -89,7 +86,7 @@ sub new {
     my $class = ref($proto) || $proto;
 
     my $self = {
-        'hostname'         => 'foundation.iplantcollaborative.org',
+        'hostname'         => 'iplant-dev.tacc.utexas.edu',
         'iplanthome'       => '/iplant/home/',
         'processors'       => 1,
         'run_time'         => '01:00:00',
@@ -479,7 +476,11 @@ sub _handle_input_run {
     # Manually force appName
     if ( $self->debug ) { print STDERR "setting softwareName\n" }
     $submitForm{'softwareName'} = $application_id;
-
+	
+	# This section has two purposes:
+	# 1) Manually change the field names from lowercase to their expected casing
+	#    (This may not be necessary under v2 but was under v1)
+	# 2) Populate the submitForm hash with key-value pairs (still necessary!)
     foreach my $k ( keys %opt_original_names ) {
         $submitForm{ $opt_original_names{$k} } = $opt->{$k};
         if ( $self->debug ) {
@@ -535,7 +536,7 @@ sub _handle_input_run {
     }
 
     # Build the request.
-    my $request = POST( "$TRANSPORT://" . $self->hostname . "/$JOB_END",
+    my $request = POST( "$TRANSPORT://" . $self->hostname . "/$JOBS_END",
         \%submitForm );
 
     # If we're debugging, print the request content.
@@ -625,7 +626,7 @@ sub get_executionhost_status {
     my $req
         = HTTP::Request->new( GET => "$TRANSPORT://"
             . $self->hostname
-            . "/$APPS_SYSTEMS/$exec_host" );
+            . "/$SYSTEMS_END/$exec_host" );
 
     print STDERR "Checking that $exec_host is accepting job submissions\n";
 
@@ -642,9 +643,12 @@ sub get_executionhost_status {
         my $res = $ua->request($req);
 
         if ( $res->is_success ) {
+            
             $message = $res->content;
             $mref    = $json->decode($message);
-            if ( $mref->{'result'}->[0]->{'status'} =~ /up/ ) {
+			print STDERR $mref->{'result'}->[0]->{'name'}, " status was ", $mref->{'result'}->[0]->{'status'}, "\n";
+			
+            if ( $mref->{'result'}->[0]->{'status'} =~ /UP/i ) {
                 return 1;
             }
             else {
@@ -654,7 +658,7 @@ sub get_executionhost_status {
         else {
 
             print STDERR
-                "$APPS_SYSTEMS/$exec_host\tERROR\tre-poll: $sleeptime", "s\n";
+                "$SYSTEMS_END/$exec_host\tERROR\tre-poll: $sleeptime", "s\n";
             sleep $sleeptime;
 
         # Wait longer before checking again. This is a load-smoothing behavior
@@ -667,7 +671,7 @@ sub get_executionhost_status {
     }
 
     print STDERR
-        "$APPS_SYSTEMS was never reachable, so we must assume catastrophic failure.\n";
+        "$SYSTEMS_END was never reachable, so we must assume catastrophic failure.\n";
     return kExitError;
 
 }
@@ -741,7 +745,7 @@ sub job_get_status {
 
     my $ua  = _setup_user_agent($self);
     my $req = HTTP::Request->new(
-        GET => "$TRANSPORT://" . $self->hostname . "/$JOB_END/$job_id" );
+        GET => "$TRANSPORT://" . $self->hostname . "/$JOBS_END/$job_id" );
 
     # Parse response
     my $message;
@@ -766,7 +770,7 @@ sub job_get_status {
         }
         else {
 
-            print STDERR "$JOB_END/$job_id\tERROR\tre-poll: $sleeptime",
+            print STDERR "$JOBS_END/$job_id\tERROR\tre-poll: $sleeptime",
                 "s\n";
             sleep $sleeptime;
 
@@ -1402,7 +1406,7 @@ Matthew W. Vaughn, E<lt>vaughn@iplantcollaborative.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2011-2012 by Matthew Vaughn
+Copyright (C) 2011-2013 by Matthew Vaughn
 
 See included LICENSE file
 
