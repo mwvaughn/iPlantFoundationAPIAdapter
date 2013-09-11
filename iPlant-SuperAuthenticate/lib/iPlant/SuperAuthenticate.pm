@@ -62,6 +62,10 @@ my $AUTH_ROOT = "auth-v1";
 my $AUTH_END  = $AUTH_ROOT;
 my $TRANSPORT = 'https';
 
+# The default ticket lifetime.
+my $SECONDS_PER_DAY = 86400;
+my $TICKET_LIFETIME = 2 * $SECONDS_PER_DAY;
+
 # Preloaded methods go here.
 
 sub new {
@@ -73,7 +77,8 @@ sub new {
         'hostname' => 'foundation.iplantcollaborative.org',
         'user'     => '',
         'password' => '',
-        'token'    => ''
+        'token'    => '',
+        'lifetime' => $TICKET_LIFETIME,
     };
 
     $self = _auto_config($self);
@@ -130,8 +135,9 @@ sub auth_post_token_delegate {
 
     my $url = "$TRANSPORT://" . $self->hostname . "/$AUTH_END/";
 
-    # lifetime = 172800 = 2 days worth of seconds
-    my %submitForm = ( 'username' => $proxied_user, 'lifetime' => 172800 );
+    my $lifetime = $self->{lifetime};
+    my %submitForm
+        = ( 'username' => $proxied_user, 'lifetime' => $lifetime );
     my $res = $ua->post( $url, \%submitForm );
 
     my $message;
