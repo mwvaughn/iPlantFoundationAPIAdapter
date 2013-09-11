@@ -436,10 +436,6 @@ sub _handle_input_run {
     # Most operations can be performed on both inputs and parameters.
     my @inputs_and_params = ( @app_inputs, @app_params );
 
-    # Build a list of default values for parameters.
-    my %default_for
-        = map { ( "\L$_->{id}" => $_->{defaultValue} ) } @inputs_and_params;
-
     # Add the application input and parameter names to the original names hash.
     %opt_original_names = (
         %opt_original_names,
@@ -485,13 +481,12 @@ sub _handle_input_run {
     $submitForm{'softwareName'} = $application_id;
 
     foreach my $k ( keys %opt_original_names ) {
-        my $v
-            = !defined $opt->{$k}           ? $default_for{$k}
-            : $opt->{$k} =~ m/\Anull\z/ixms ? $default_for{$k}
-            :                                 $opt->{$k};
-        $submitForm{ $opt_original_names{$k} } = $v;
-        if ( $self->debug ) {
-            print STDERR "$opt_original_names{$k} = $v\n";
+        my $v = $opt->{$k};
+        if ( defined $v && $v !~ m/\Anull\z/ixms ) {
+            $submitForm{ $opt_original_names{$k} } = $v;
+            if ( $self->debug ) {
+                print STDERR "$opt_original_names{$k} = $v\n";
+            }
         }
     }
 
