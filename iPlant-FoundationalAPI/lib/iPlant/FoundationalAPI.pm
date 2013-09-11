@@ -24,7 +24,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw( new invoke application_id set_credentials debug );
 
-our $VERSION = '0.30';
+our $VERSION = '0.31';
 use vars qw($VERSION);
 
 use LWP;
@@ -436,6 +436,10 @@ sub _handle_input_run {
     # Most operations can be performed on both inputs and parameters.
     my @inputs_and_params = ( @app_inputs, @app_params );
 
+    # Build a list of default values for parameters.
+    my %default_for
+        = map { ( "\L$_->{id}" => $_->{defaultValue} ) } @inputs_and_params;
+
     # Add the application input and parameter names to the original names hash.
     %opt_original_names = (
         %opt_original_names,
@@ -481,9 +485,13 @@ sub _handle_input_run {
     $submitForm{'softwareName'} = $application_id;
 
     foreach my $k ( keys %opt_original_names ) {
-        $submitForm{ $opt_original_names{$k} } = $opt->{$k};
+        my $v
+            = !defined $opt->{$k}           ? $default_for{$k}
+            : $opt->{$k} =~ m/\Anull\z/ixms ? $default_for{$k}
+            :                                 $opt->{$k};
+        $submitForm{ $opt_original_names{$k} } = $v;
         if ( $self->debug ) {
-            print STDERR "$opt_original_names{$k} = $opt->{$k}\n";
+            print STDERR "$opt_original_names{$k} = $v\n";
         }
     }
 
@@ -614,7 +622,7 @@ sub temp_fix_archivepath {
 }
 
 sub get_executionhost_status {
-	
+
 	# This assumes that the status reported by /systems is accurate. Some XSEDE systems
 	# do not report transient outages
 
@@ -828,7 +836,7 @@ sub apps_fetch_description {
             	print JSON $res->content, "\n";
             	close JSON;
             }
-            
+
             $mref = $json->decode($message);
 
             # fail_status is now 1, but this will be ignored if I am
@@ -845,7 +853,7 @@ sub apps_fetch_description {
             if ( defined( $mref->{'result'}->{'available'} ) ) {
                 return $mref->{'result'};
             }
-            
+
         }
         else {
 
@@ -1243,13 +1251,13 @@ None by default.
 
 application.pl run|search|list|authenticate --options
 
-	search --name <name> --tag <tag> 
+	search --name <name> --tag <tag>
 		--id <id> [--authentication]
 
-	list --path <iRODS path relative to 
+	list --path <iRODS path relative to
 		$IRODS_HOME> [--authentication]
 
-	run --options --appid <id> [--application-specific options] 
+	run --options --appid <id> [--application-specific options]
 		[--authentication]
 
 	authenticate [--authentication]

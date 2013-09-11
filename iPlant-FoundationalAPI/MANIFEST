@@ -9,3 +9,4 @@ README
 t/iPlant-FoundationalAPI.t
 lib/iPlant/FoundationalAPI.pm
 script/foundational_api_adapter.pl
+Makefile.PL
