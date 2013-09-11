@@ -213,8 +213,8 @@ sub _auto_config {
     }
 
     unless ( ( $self->{'user'} ne '' ) and ( $self->{'password'} ne '' ) ) {
-        print STDERR
-            "SuperAuthenticate was not properly configured with a username/password\n";
+        print STDERR "SuperAuthenticate was not properly configured with",
+            " a username/password\n";
         print STDERR
             "Please create a valid config file at one of these locations: ",
             join( ", ", @config_files ), "\n";
