@@ -24,7 +24,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw( new invoke application_id set_credentials debug );
 
-our $VERSION = '0.31';
+our $VERSION = '0.32';
 use vars qw($VERSION);
 
 use LWP;

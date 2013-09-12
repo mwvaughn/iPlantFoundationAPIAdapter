@@ -22,7 +22,7 @@ my $builder = Module::Build->new(
         'Mozilla::CA'               => 20120309,
         'Net::SSL'                  => 0,
         'YAML'                      => 0,
-        'iPlant::SuperAuthenticate' => 0,
+        'iPlant::SuperAuthenticate' => 0.32,
     },
     add_to_cleanup     => ['iPlant::FoundationalAPI-*'],
     create_makefile_pl => 'traditional',
